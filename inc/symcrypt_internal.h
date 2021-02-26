@@ -9,7 +9,7 @@
 // but which still needs to be known to the compiler to be able to use the library.
 // This includes structure declarations and all support for inline implementations
 // of some of the library functions.
-// Information in this file is not part of tha API and can change at any time.
+// Information in this file is not part of the API and can change at any time.
 //
 
 //
@@ -138,18 +138,18 @@
 #pragma warning(disable:4359)   // *** Alignment specifier is less than actual alignment
 #endif
 
+#elif (defined( _ARM64_ ) || defined( _ARM64EC_ )) && !defined( SYMCRYPT_IGNORE_PLATFORM )
+
+#undef  SYMCRYPT_CPU_ARM64
+#define SYMCRYPT_CPU_ARM64      1
+#define SYMCRYPT_CALL
+#define SYMCRYPT_ALIGN_VALUE    16
+
 #elif defined( _AMD64_ ) && !defined ( SYMCRYPT_IGNORE_PLATFORM )
 
 #undef  SYMCRYPT_CPU_AMD64
 #define SYMCRYPT_CPU_AMD64      1
 
-#define SYMCRYPT_CALL
-#define SYMCRYPT_ALIGN_VALUE    16
-
-#elif defined( _ARM64_ ) && !defined( SYMCRYPT_IGNORE_PLATFORM )
-
-#undef  SYMCRYPT_CPU_ARM64
-#define SYMCRYPT_CPU_ARM64      1
 #define SYMCRYPT_CALL
 #define SYMCRYPT_ALIGN_VALUE    16
 
@@ -201,7 +201,6 @@
 #else
 
 #include <stdint.h>
-#include <stddef.h>
 
 typedef uint8_t         BYTE;
 
@@ -245,6 +244,8 @@ typedef uint32_t            ULONG32, *PULONG32;
 typedef char CHAR;
 
 #endif //WIN32
+
+#include <stddef.h>
 
 //
 // Pointer types
@@ -567,7 +568,7 @@ SymCryptCpuFeaturesNeverPresent();
 //  INTERNAL DATA STRUCTURES
 //==============================================================================================
 //
-// Note: we don not use the symbolic names like SYMCRYPT_SHA1_INPUT_BLOCK_SIZE as this
+// Note: we do not use the symbolic names like SYMCRYPT_SHA1_INPUT_BLOCK_SIZE as this
 // file is included before that name is defined. Fixing that would make the public API header
 // file harder to read by moving the constant away from the associated functions, or forcing
 // the header file to use the struct name rather than the typedef. The current solution
@@ -1242,6 +1243,12 @@ typedef union _SYMCRYPT_GCM_SUPPORTED_BLOCKCIPHER_KEYS
 #define SYMCRYPT_GCM_BLOCK_SIZE     (16)
 #define SYMCRYPT_GCM_MAX_KEY_SIZE   (32)
 
+
+#define SYMCRYPT_GCM_MAX_DATA_SIZE           (((UINT64)1 << 36) - 32)
+
+#define SYMCRYPT_GCM_BLOCK_MOD_MASK      (SYMCRYPT_GCM_BLOCK_SIZE - 1)
+#define SYMCRYPT_GCM_BLOCK_ROUND_MASK    (~SYMCRYPT_GCM_BLOCK_MOD_MASK)
+
 #if SYMCRYPT_CPU_X86
     //
     // x86 needs extra alignment of the GHASH expanded key to support
@@ -1334,10 +1341,11 @@ typedef const SYMCRYPT_GCM_STATE * PCSYMCRYPT_GCM_STATE;
 
 typedef SYMCRYPT_ERROR( SYMCRYPT_CALL * PSYMCRYPT_BLOCKCIPHER_EXPAND_KEY )
 (PVOID pExpandedKey, PCBYTE pbKey, SIZE_T cbKey);
-typedef VOID( SYMCRYPT_CALL * PSYMCRYPT_BLOCKCIPHER_CRYPT )     (PCVOID pExpandedKey, PCBYTE pbSrc, PBYTE pbDst);
-typedef VOID( SYMCRYPT_CALL * PSYMCRYPT_BLOCKCIPHER_CRYPT_ECB ) (PCVOID pExpandedKey, PCBYTE pbSrc, PBYTE pbDst, SIZE_T cbData);
-typedef VOID( SYMCRYPT_CALL * PSYMCRYPT_BLOCKCIPHER_CRYPT_MODE )(PCVOID pExpandedKey, PBYTE pbChainingValue, PCBYTE pbSrc, PBYTE pbDst, SIZE_T cbData);
-typedef VOID( SYMCRYPT_CALL * PSYMCRYPT_BLOCKCIPHER_MAC_MODE )  (PCVOID pExpandedKey, PBYTE pbChainingValue, PCBYTE pbSrc, SIZE_T cbData);
+typedef VOID( SYMCRYPT_CALL * PSYMCRYPT_BLOCKCIPHER_CRYPT )         (PCVOID pExpandedKey, PCBYTE pbSrc, PBYTE pbDst);
+typedef VOID( SYMCRYPT_CALL * PSYMCRYPT_BLOCKCIPHER_CRYPT_ECB )     (PCVOID pExpandedKey, PCBYTE pbSrc, PBYTE pbDst, SIZE_T cbData);
+typedef VOID( SYMCRYPT_CALL * PSYMCRYPT_BLOCKCIPHER_CRYPT_MODE )    (PCVOID pExpandedKey, PBYTE pbChainingValue, PCBYTE pbSrc, PBYTE pbDst, SIZE_T cbData);
+typedef VOID( SYMCRYPT_CALL * PSYMCRYPT_BLOCKCIPHER_MAC_MODE )      (PCVOID pExpandedKey, PBYTE pbChainingValue, PCBYTE pbSrc, SIZE_T cbData);
+typedef VOID( SYMCRYPT_CALL * PSYMCRYPT_BLOCKCIPHER_AEADPART_MODE ) (PVOID pState, PCBYTE pbSrc, PBYTE pbDst, SIZE_T cbData);
 
 struct _SYMCRYPT_BLOCKCIPHER {
                                                 PSYMCRYPT_BLOCKCIPHER_EXPAND_KEY    expandKeyFunc;      // mandatory
@@ -1349,6 +1357,8 @@ struct _SYMCRYPT_BLOCKCIPHER {
                                                 PSYMCRYPT_BLOCKCIPHER_CRYPT_MODE    cbcDecryptFunc;     // NULL if no optimized version available
                                                 PSYMCRYPT_BLOCKCIPHER_MAC_MODE      cbcMacFunc;         // NULL if no optimized version available
                                                 PSYMCRYPT_BLOCKCIPHER_CRYPT_MODE    ctrMsb64Func;       // NULL if no optimized version available
+                                                PSYMCRYPT_BLOCKCIPHER_AEADPART_MODE gcmEncryptPartFunc; // NULL if no optimized version available
+                                                PSYMCRYPT_BLOCKCIPHER_AEADPART_MODE gcmDecryptPartFunc; // NULL if no optimized version available
     _Field_range_( 0, SYMCRYPT_MAX_BLOCK_SIZE ) SIZE_T                              blockSize;          // = SYMCRYPT_XXX_BLOCK_SIZE, power of 2, value <= 32.
                                                 SIZE_T                              expandedKeySize;    // = sizeof( SYMCRYPT_XXX_EXPANDED_KEY )
 };
@@ -1575,7 +1585,7 @@ typedef const SYMCRYPT_ECPOINT * PCSYMCRYPT_ECPOINT;
 //
 
 #define SYMCRYPT_ANYSIZE    1       // used to mark arrays of arbitrary size
-#define SYMCRYPT_FIELD_OFFSET(type, field)      ((ULONG)(ULONG_PTR)&(((type *)0)->field))
+#define SYMCRYPT_FIELD_OFFSET(type, field)      (offsetof(type, field))
 #define SYMCRYPT_FIELD_SIZE(type, field)        (sizeof( ((type *)0)->field ))
 
 
@@ -1998,6 +2008,10 @@ typedef SYMCRYPT_ASYM_ALIGN struct _SYMCRYPT_DLGROUP {
     UINT32                  cbPrimeQ;       // Number of bytes of the value of Q (not the object's size), equal to ceil(nBitsOfQ/8)
     UINT32                  nDigitsOfQ;     // Number of digits of the object of prime Q
     UINT32                  nMaxBitsOfQ;    // Maximum number of bits of the value of Q
+
+    BOOLEAN                 isSafePrimeGroup;   // Boolean indicating if this is a Safe Prime group
+    UINT32                  nBitsPriv;      // Number of bits in private keys using this group
+                                            // Normally equals nBitsOfQ, but may be further restricted (i.e. for named Safe Prime groups)
 
     UINT32                  nBitsOfSeed;    // Number of bits of the seed used for generation (seedlen in FIPS 186-3)
     UINT32                  cbSeed;         // Number of bytes of the seed, equal to ceil(nBitsOfSeed/8)

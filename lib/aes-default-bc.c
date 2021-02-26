@@ -8,7 +8,7 @@
 
 //
 // The SymCrypt API allows callers to use the generic block cipher mode functions and pass
-// a pionter to a structure that describes the block cipher.
+// a pointer to a structure that describes the block cipher.
 // This structure contains pointers to all the optimized implementations of the various modes.
 // This pulls in all the mode-specific code, which in some cases we don't want.
 //
@@ -65,6 +65,18 @@ const SYMCRYPT_BLOCKCIPHER SymCryptAesBlockCipher_Fast = {
 
 #if SYMCRYPT_CPU_X86 | SYMCRYPT_CPU_AMD64 | SYMCRYPT_CPU_ARM | SYMCRYPT_CPU_ARM64
     &SymCryptAesCtrMsb64,
+#else
+    NULL,
+#endif
+
+#if SYMCRYPT_CPU_X86 | SYMCRYPT_CPU_AMD64 | SYMCRYPT_CPU_ARM | SYMCRYPT_CPU_ARM64
+    &SymCryptAesGcmEncryptPart,
+#else
+    NULL,
+#endif
+
+#if SYMCRYPT_CPU_X86 | SYMCRYPT_CPU_AMD64 | SYMCRYPT_CPU_ARM | SYMCRYPT_CPU_ARM64
+    &SymCryptAesGcmDecryptPart,
 #else
     NULL,
 #endif

@@ -58,6 +58,7 @@ set(SOURCES_COMMON
     hkdf_selftest.c
     chacha20.c
     poly1305.c
+    chacha20_poly1305.c
     a_dispatch.c
     fdef_general.c
     fdef_int.c
@@ -87,6 +88,7 @@ set(SOURCES_COMMON
     dlkey.c
     dsa.c
     dh.c
+    dl_internal_groups.c
     recoding.c
     IEEE802_11SaeCustom.c
   )

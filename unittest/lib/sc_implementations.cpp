@@ -887,7 +887,7 @@ VOID
 algImpDataPerfFunction<ImpSc,AlgAes, ModeCcm>( PBYTE buf1, PBYTE buf2, PBYTE buf3, SIZE_T dataSize )
 {
     SymCryptCcmEncrypt( SymCryptAesBlockCipher, (SYMCRYPT_AES_EXPANDED_KEY *)buf1,
-        buf2, 12, NULL, 0, buf2+16, buf2+16, dataSize, buf3, 16 );
+        buf2, 12, NULL, 0, buf2 + 16, buf3 + 16, dataSize, buf3, 16 );
 }
 
 template<>
@@ -895,7 +895,7 @@ VOID
 algImpDecryptPerfFunction<ImpSc,AlgAes, ModeCcm>( PBYTE buf1, PBYTE buf2, PBYTE buf3, SIZE_T dataSize )
 {
     SymCryptCcmDecrypt( SymCryptAesBlockCipher, (SYMCRYPT_AES_EXPANDED_KEY *)buf1,
-        buf2, 12, NULL, 0, buf2 + 16, buf2 + 16, dataSize, buf3, 16 );
+        buf2, 12, NULL, 0, buf3 + 16, buf2 + 16, dataSize, buf3, 16 );
 }
 
 template<>
@@ -1166,7 +1166,7 @@ algImpDataPerfFunction<ImpSc,AlgAes, ModeGcm>( PBYTE buf1, PBYTE buf2, PBYTE buf
     SymCryptGcmEncrypt( (PCSYMCRYPT_GCM_EXPANDED_KEY) buf1,
                             buf2, 12,
                             NULL, 0,
-                            buf2+16, buf2+16, dataSize,
+                            buf2 + 16, buf3 + 16, dataSize,
                             buf3, 16 );
 }
 
@@ -1177,7 +1177,7 @@ algImpDecryptPerfFunction<ImpSc,AlgAes, ModeGcm>( PBYTE buf1, PBYTE buf2, PBYTE 
     SymCryptGcmDecrypt( (PCSYMCRYPT_GCM_EXPANDED_KEY) buf1,
                             buf2, 12,
                             NULL, 0,
-                            buf2+16, buf2+16, dataSize,
+                            buf3 + 16, buf2 + 16, dataSize,
                             buf3, 16 );
 }
 
@@ -1287,7 +1287,7 @@ AuthEncImp<ImpSc, AlgAes, ModeGcm>::encrypt(
 
     if( (flags & AUTHENC_FLAG_PARTIAL) == 0 )
     {
-        // simple straight CCM computation.
+        // simple straight GCM computation.
         initXmmRegisters();
         CHECK( SymCryptGcmValidateParameters(   SymCryptAesBlockCipher,
             cbNonce,
@@ -1379,7 +1379,7 @@ AuthEncImp<ImpSc, AlgAes, ModeGcm>::decrypt(
 
     if( (flags & AUTHENC_FLAG_PARTIAL) == 0 )
     {
-        // simple straight CCM computation.
+        // simple straight GCM computation.
         initXmmRegisters();
         CHECK( SymCryptGcmValidateParameters(   SymCryptAesBlockCipher,
             cbNonce,
@@ -1450,6 +1450,169 @@ cleanup:
     return scError == SYMCRYPT_NO_ERROR ? 0 : STATUS_AUTH_TAG_MISMATCH;
 }
 
+
+//////////////////////////
+// CHACHA20POLY1305
+
+//template<>
+//VOID
+//algImpKeyPerfFunction< ImpSc, AlgChaCha20Poly1305, ModeNone>( PBYTE buf1, PBYTE buf2, PBYTE buf3, SIZE_T keySize )
+//{
+//    UNREFERENCED_PARAMETER( buf1 );
+//    UNREFERENCED_PARAMETER( buf2 );
+//    UNREFERENCED_PARAMETER( buf3 );
+//    UNREFERENCED_PARAMETER( KeySize );
+//}
+
+template<>
+VOID
+algImpDataPerfFunction<ImpSc, AlgChaCha20Poly1305, ModeNone>( PBYTE buf1, PBYTE buf2, PBYTE buf3, SIZE_T dataSize )
+{
+    SymCryptChaCha20Poly1305Encrypt( buf1, 32,
+                                     buf2, 12,
+                                     NULL, 0,
+                                     buf2 + 16, buf3 + 16, dataSize,
+                                     buf3, 16 );
+}
+
+template<>
+VOID
+algImpDecryptPerfFunction<ImpSc, AlgChaCha20Poly1305, ModeNone>( PBYTE buf1, PBYTE buf2, PBYTE buf3, SIZE_T dataSize )
+{
+    SymCryptChaCha20Poly1305Decrypt( buf1, 32,
+                                     buf2, 12,
+                                     NULL, 0,
+                                     buf3 + 16, buf2 + 16, dataSize,
+                                     buf3, 16 );
+}
+
+//template<>
+//VOID
+//algImpCleanPerfFunction<ImpSc, AlgChaCha20Poly1305, ModeNone>( PBYTE buf1, PBYTE buf2, PBYTE buf3 )
+//{
+//    UNREFERENCED_PARAMETER( buf1 );
+//    UNREFERENCED_PARAMETER( buf2 );
+//    UNREFERENCED_PARAMETER( buf3 );
+//}
+
+template<>
+AuthEncImp<ImpSc, AlgChaCha20Poly1305, ModeNone>::AuthEncImp()
+{
+    m_perfKeyFunction     = NULL;
+    m_perfCleanFunction   = NULL;
+    m_perfDataFunction    = &algImpDataPerfFunction   <ImpSc, AlgChaCha20Poly1305, ModeNone>;
+    m_perfDecryptFunction = &algImpDecryptPerfFunction<ImpSc, AlgChaCha20Poly1305, ModeNone>;
+}
+
+template<>
+AuthEncImp<ImpSc, AlgChaCha20Poly1305, ModeNone>::~AuthEncImp()
+{
+    SymCryptWipeKnownSize( state.key, sizeof( state.key ) );
+}
+
+template<>
+std::set<SIZE_T>
+AuthEncImp<ImpSc, AlgChaCha20Poly1305, ModeNone>::getKeySizes()
+{
+    std::set<SIZE_T> res;
+
+    res.insert( 32 );
+
+    return res;
+}
+
+
+template<>
+std::set<SIZE_T>
+AuthEncImp<ImpSc, AlgChaCha20Poly1305, ModeNone>::getNonceSizes()
+{
+    std::set<SIZE_T> res;
+
+    res.insert( 12 );
+
+    return res;
+}
+
+
+template<>
+std::set<SIZE_T>
+AuthEncImp<ImpSc, AlgChaCha20Poly1305, ModeNone>::getTagSizes()
+{
+    std::set<SIZE_T> res;
+
+    res.insert( 16 );
+
+    return res;
+}
+
+template<>
+NTSTATUS
+AuthEncImp<ImpSc, AlgChaCha20Poly1305, ModeNone>::setKey( PCBYTE pbKey, SIZE_T cbKey )
+{
+    CHECK( cbKey == 32, "?" );
+    memcpy( state.key, pbKey, cbKey );
+
+    return STATUS_SUCCESS;
+}
+
+template<>
+VOID
+AuthEncImp<ImpSc, AlgChaCha20Poly1305, ModeNone>::setTotalCbData( SIZE_T cbData )
+{
+    UNREFERENCED_PARAMETER( cbData );
+}
+
+template<>
+NTSTATUS
+AuthEncImp<ImpSc, AlgChaCha20Poly1305, ModeNone>::encrypt(
+        _In_reads_( cbNonce )                     PCBYTE  pbNonce,
+                                                  SIZE_T  cbNonce,
+        _In_reads_( cbAuthData )                  PCBYTE  pbAuthData,
+                                                  SIZE_T  cbAuthData,
+        _In_reads_( cbData )                      PCBYTE  pbSrc,
+        _Out_writes_( cbData )                    PBYTE   pbDst,
+                                                  SIZE_T  cbData,
+        _Out_writes_( cbTag )                     PBYTE   pbTag,
+                                                  SIZE_T  cbTag,
+                                                  ULONG   flags )
+{
+    UNREFERENCED_PARAMETER( flags );
+
+    SYMCRYPT_ERROR scError = SYMCRYPT_NO_ERROR;
+
+    scError = SymCryptChaCha20Poly1305Encrypt( state.key, sizeof( state.key ),
+                                               pbNonce, cbNonce, pbAuthData, cbAuthData,
+                                               pbSrc, pbDst, cbData,
+                                               pbTag, cbTag );
+
+    return scError == SYMCRYPT_NO_ERROR ? 0 : STATUS_ENCRYPTION_FAILED;
+}
+
+template<>
+NTSTATUS
+AuthEncImp<ImpSc, AlgChaCha20Poly1305, ModeNone>::decrypt(
+        _In_reads_( cbNonce )                     PCBYTE  pbNonce,
+                                                  SIZE_T  cbNonce,
+        _In_reads_( cbAuthData )                  PCBYTE  pbAuthData,
+                                                  SIZE_T  cbAuthData,
+        _In_reads_( cbData )                      PCBYTE  pbSrc,
+        _Out_writes_( cbData )                    PBYTE   pbDst,
+                                                  SIZE_T  cbData,
+        _In_reads_( cbTag )                       PCBYTE  pbTag,
+                                                  SIZE_T  cbTag,
+                                                  ULONG   flags )
+{
+    UNREFERENCED_PARAMETER( flags );
+
+    SYMCRYPT_ERROR scError = SYMCRYPT_NO_ERROR;
+
+    scError = SymCryptChaCha20Poly1305Decrypt( state.key, sizeof( state.key ),
+                                               pbNonce, cbNonce, pbAuthData, cbAuthData,
+                                               pbSrc, pbDst, cbData,
+                                               pbTag, cbTag );
+
+    return scError == SYMCRYPT_NO_ERROR ? 0 : STATUS_AUTH_TAG_MISMATCH;
+}
 
 
 //////////////////////////
@@ -5211,11 +5374,11 @@ RsaImp<ImpSc, AlgRsaVerifyPss>::~RsaImp()
 //============================
 
 VOID
-DlgroupSetup( PBYTE buf1, SIZE_T keySize )
+DlgroupSetup( PBYTE buf1, SIZE_T keySize, BOOLEAN forDiffieHellman )
 {
     SYMCRYPT_ERROR scError;
 
-    PCDLGROUP_TESTBLOB pBlob = dlgroupForSize( keySize * 8 );
+    PCDLGROUP_TESTBLOB pBlob = dlgroupForSize( keySize * 8, forDiffieHellman );
 
     CHECK( pBlob != NULL, "?" );
 
@@ -5461,19 +5624,67 @@ DlImp<ImpSc, AlgDsaVerify>::~DlImp()
 //============================
 
 PSYMCRYPT_DLKEY
-dlkeyObjectFromTestBlob( PCSYMCRYPT_DLGROUP pGroup, PCDLKEY_TESTBLOB pBlob )
+dlkeyObjectFromTestBlob( PCSYMCRYPT_DLGROUP pGroup, PCDLKEY_TESTBLOB pBlob, BOOL setPrivate = TRUE )
 {
     PSYMCRYPT_DLKEY pRes;
     SYMCRYPT_ERROR scError;
+    UINT32 flags = 0;
+    PCBYTE pbPrivKey = NULL;
+    SIZE_T cbPrivKey = 0;
+    PCBYTE pbPubKey = NULL;
+    SIZE_T cbPubKey = 0;
 
     pRes = SymCryptDlkeyAllocate( pGroup );
     CHECK( pRes != NULL, "?" );
 
-    scError = SymCryptDlkeySetValue(    &pBlob->abPrivKey[0], pBlob->cbPrivKey,
-                                        &pBlob->abPubKey[0], pBlob->pGroup->cbPrimeP,
+    // We want to exercise the various code paths semi-randomly in tests - we will be hitting this function 100s of times
+    // in unit tests, and there are only 16 combinations of code paths we want to exercise, so we should get decent coverage
+
+    BYTE randByte = g_rng.byte();
+
+    if(randByte & 1)
+    {
+        flags |= SYMCRYPT_FLAG_KEY_KEYPAIR_REGENERATION_VALIDATION;
+    }
+
+    // If Dlgroup has a set Q and Dlkey wasn't explicitly generated with private key mod P
+    if ( pGroup->fHasPrimeQ && !pBlob->fPrivateModP )
+    {
+        switch((randByte >> 1) & 3)
+        {
+            case 0:
+                break;
+            case 1:
+                flags |= SYMCRYPT_FLAG_KEY_MINIMAL_VALIDATION;
+                break;
+            case 2:
+                flags |= SYMCRYPT_FLAG_KEY_RANGE_VALIDATION;
+                break;
+            case 3:
+            default:
+                flags |= SYMCRYPT_FLAG_KEY_RANGE_AND_PUBLIC_KEY_ORDER_VALIDATION;
+                break;
+        }
+    }
+
+    if (setPrivate || (randByte & 0x8))
+    {
+        pbPrivKey = &pBlob->abPrivKey[0];
+        cbPrivKey = pBlob->cbPrivKey;
+    }
+
+    if (!setPrivate)
+    {
+        pbPubKey = &pBlob->abPubKey[0];
+        cbPubKey = pBlob->pGroup->cbPrimeP;
+    }
+
+    scError = SymCryptDlkeySetValue(    pbPrivKey, cbPrivKey,
+                                        pbPubKey, cbPubKey,
                                         SYMCRYPT_NUMBER_FORMAT_MSB_FIRST,
-                                        SYMCRYPT_FLAG_DLKEY_VERIFY,     // Verify the key is correct
+                                        flags, // Do as much verification that the key is correct as possible
                                         pRes );
+
     CHECK( scError == SYMCRYPT_NO_ERROR, "Error importing key" );
 
     return pRes;
@@ -5487,7 +5698,7 @@ algImpKeyPerfFunction<ImpSc, AlgDh>( PBYTE buf1, PBYTE buf2, PBYTE buf3, SIZE_T 
 
     UNREFERENCED_PARAMETER( buf3 );
 
-    DlgroupSetup( buf1, keySize );
+    DlgroupSetup( buf1, keySize, TRUE );
 
     // Set up two keys in buf2
     PSYMCRYPT_DLGROUP pGroup = *(PSYMCRYPT_DLGROUP *) buf1;
@@ -5616,7 +5827,7 @@ DhImp<ImpSc, AlgDh>::sharedSecret(
     PSYMCRYPT_DLKEY pKey2;
     SYMCRYPT_ERROR scError;
 
-    pKey2 = dlkeyObjectFromTestBlob( state.pGroup, pcPubkey );
+    pKey2 = dlkeyObjectFromTestBlob( state.pGroup, pcPubkey, /*setPrivate=*/ FALSE );
     CHECK( pKey2 != NULL, "?")
 
     scError = SymCryptDhSecretAgreement(    state.pKey,
@@ -5639,7 +5850,7 @@ algImpKeyPerfFunction<ImpSc, AlgDsa>( PBYTE buf1, PBYTE buf2, PBYTE buf3, SIZE_T
 
     UNREFERENCED_PARAMETER( buf3 );
 
-    DlgroupSetup( buf1, keySize );  // Set buf1 to contain a DL group of size keySize
+    DlgroupSetup( buf1, keySize, FALSE );  // Set buf1 to contain a DL group of size keySize
 
     // Set up a keys in buf2
     PSYMCRYPT_DLGROUP pGroup = *(PSYMCRYPT_DLGROUP *) buf1;
@@ -6770,6 +6981,7 @@ addSymCryptAlgs()
 
     addImplementationToGlobalList<AuthEncImp<ImpSc, AlgAes, ModeCcm>>();
     addImplementationToGlobalList<AuthEncImp<ImpSc, AlgAes, ModeGcm>>();
+    addImplementationToGlobalList<AuthEncImp<ImpSc, AlgChaCha20Poly1305, ModeNone>>();
 
     addImplementationToGlobalList<StreamCipherImp<ImpSc, AlgRc4>>();
     addImplementationToGlobalList<StreamCipherImp<ImpSc, AlgChaCha20>>();

@@ -101,6 +101,7 @@
     #define STATUS_SUCCESS                   ((NTSTATUS)0x00000000L)
     #define NT_SUCCESS(Status)               (((NTSTATUS)(Status)) >= 0)
     #define STATUS_AUTH_TAG_MISMATCH         ((NTSTATUS)0xC000A002L)
+    #define STATUS_ENCRYPTION_FAILED         ((NTSTATUS)0xC000028AL)
 
     #define UNREFERENCED_PARAMETER(x)       (x)
 
@@ -128,35 +129,6 @@
     #define InterlockedAdd64(ptr, val) __sync_fetch_and_add(ptr, val)
     #define InterlockedIncrement64(ptr) __sync_fetch_and_add(ptr, 1)
     #define InterlockedDecrement64(ptr) __sync_fetch_and_sub(ptr, 1)
-
-    #if defined(__i386__)
-
-    static inline unsigned long __rdtsc(void)
-    {
-        unsigned long x;
-        asm volatile (".byte 0x0f, 0x31" : "=A" (x));
-        return x;
-    }
-
-    #elif defined(__amd64)
-
-    static inline unsigned long long __rdtsc(void)
-    {
-        unsigned long long tsc;
-        asm volatile ("rdtsc; sal $32, %%rdx; or %%rdx, %%rax;" : "=a"(tsc));
-        return tsc;
-    }
-    #endif
-
-    static inline void __cpuid(int CPUInfo[4], int InfoType)
-    {
-        asm volatile ("mov %0, %%eax; cpuid" :
-            "=a" (CPUInfo[0]),
-            "=b" (CPUInfo[1]),
-            "=c" (CPUInfo[2]),
-            "=d" (CPUInfo[3]) :
-            "g" (InfoType));
-    }
 
     #include <unistd.h>
     #define Sleep(x) sleep((x)/1000)
@@ -612,6 +584,11 @@ public:
     const static char * name;
 };
 
+class AlgChaCha20Poly1305 {
+public:
+    const static char* name;
+};
+
 class AlgAesCtrDrbg{
 public:
     const static char * name;
@@ -714,6 +691,11 @@ public:
 class ModeGcm{
 public:
     const static char * name;
+};
+
+class ModeNone {
+public:
+    const static char* name;
 };
 
 class AlgIntAdd{
@@ -1009,6 +991,13 @@ extern BOOL g_profile;
 extern UINT32 g_profile_iterations;
 extern UINT32 g_profile_key;
 
+extern BOOL g_measure_specific_sizes;
+extern UINT32 g_measure_sizes_start;
+extern UINT32 g_measure_sizes_end;
+extern UINT32 g_measure_sizes_increment;
+extern UINT32 g_measure_sizes_repetitions;
+extern String g_measure_sizes_stringPrefix;
+
 extern BOOL g_perfTestsRunning;
 
 extern ULONG    g_rc2EffectiveKeyLength;
@@ -1160,7 +1149,7 @@ VOID
 verifyYmmRegisters();
 
 
-VOID 
+VOID
 addAllAlgs();
 
 VOID
@@ -1633,9 +1622,10 @@ addRsaKeyGenPerfMsBignum( PrintTable &table );
 extern RSAKEY_TESTBLOB g_RsaTestKeyBlobs[ MAX_RSA_TESTKEYS ];
 extern UINT32 g_nRsaTestKeyBlobs;
 
-#define MAX_TEST_DLGROUPS   (50)
+#define MAX_TEST_DLGROUPS   (60)
 extern DLGROUP_TESTBLOB g_DlGroup[ MAX_TEST_DLGROUPS ];
 extern UINT32 g_nDlgroups;
+extern UINT32 g_nDhNamedGroups;
 
 VOID
 fprintHex( FILE * f, PCBYTE pbData, SIZE_T cbData );
@@ -1652,7 +1642,7 @@ PSYMCRYPT_RSAKEY
 rsaTestKeyForSize( SIZE_T nBits );
 
 PCDLGROUP_TESTBLOB
-dlgroupForSize( SIZE_T nBits );
+dlgroupForSize( SIZE_T nBits, BOOLEAN forDiffieHellman );
 
 VOID generateDlGroups();
 

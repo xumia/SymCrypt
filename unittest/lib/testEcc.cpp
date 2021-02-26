@@ -319,6 +319,21 @@ testEccArithmetic( _In_ PCSYMCRYPT_ECURVE pCurve )
     vprint( g_verbose, "Success\n");
 
     // =================================
+    vprint( g_verbose, "    %-41s", "P3 := 8 * P1 + 0 * P2" );
+    vprint( g_verbose, " %-40s", "SymCryptEcpointMultiScalarMul");
+    SymCryptIntSetValueUint32( 8, piSc1 );
+    SymCryptIntSetValueUint32( 0, piSc2 );
+    scError = SymCryptEcpointMultiScalarMul( pCurve, piTable, poTable, MULTIMUL_POINTS, SYMCRYPT_FLAG_DATA_PUBLIC, poP3, pbScratchMultiMul, cbScratchMultiMul );
+
+    CHECK( scError == SYMCRYPT_NO_ERROR, "Multi Scalar Multiplying failed" );
+    CHECK( SymCryptEcpointOnCurve( pCurve, poP3, pbScratch, cbScratch ), "Multiplied point not on curve!");
+    vprint( g_verbose, "Success\n");
+
+    vprint( g_verbose, "    %-41s", "Checking P2 == P3 ?" );
+    vprint( g_verbose, " %-40s", "SymCryptEcpointIsEqual");
+    CHECK( SymCryptEcpointIsEqual( pCurve, poP2, poP3, 0, pbScratch, cbScratch ), " P2 != P3 " );
+    vprint( g_verbose, "Success\n");
+
     vprint( g_verbose, "    %-41s", "P3 := 6 * P1 + 17 * P2" );
     vprint( g_verbose, " %-40s", "SymCryptEcpointMultiScalarMul");
     SymCryptIntSetValueUint32( 6, piSc1 );
@@ -474,7 +489,7 @@ testEccArithmetic( _In_ PCSYMCRYPT_ECURVE pCurve )
 
     do
     {
-        scError = SymCryptEckeySetRandom( 0, pkKey1 );
+        scError = SymCryptEckeySetRandom( SYMCRYPT_FLAG_KEY_RANGE_AND_PUBLIC_KEY_ORDER_VALIDATION, pkKey1 );
         CHECK( scError == SYMCRYPT_NO_ERROR, "Set random key failed" );
 
         CHECK( SymCryptEcpointOnCurve( pCurve, pkKey1->poPublicKey, pbScratch, cbScratch), "Public key not on curve");
@@ -585,12 +600,28 @@ testEccArithmetic( _In_ PCSYMCRYPT_ECURVE pCurve )
     CHECK( scError == SYMCRYPT_NO_ERROR, "SymCryptEcDhSecretAgreement failed" );
     vprint( g_verbose, "Success\n");
 
+    SymCryptEcpointSetZero(pCurve, pkKey1->poPublicKey, pbScratchMul, cbScratchMul);
+
+    vprint( g_verbose, "    %-41s", "Verify signature with 0 public key" );
+    vprint( g_verbose, " %-40s", "SymCryptEcDsaVerify");
+    scError = SymCryptEcDsaVerify(
+                    pkKey1,
+                    pbHashValue,
+                    sizeof(pbHashValue),
+                    pbSignature,
+                    cbSignature,
+                    SYMCRYPT_NUMBER_FORMAT_MSB_FIRST,
+                    0 );
+
+    CHECK( scError != SYMCRYPT_NO_ERROR, "SymCryptEcDsaVerify should have failed but succeeded" );
+    vprint( g_verbose, "Success\n");
+
     // =================================
     // =================================
     // Check that only the necessary extra allocations happened:
     // NUM_OF_HIGH_BIT_RESTRICTION_ITERATIONS* (SymCryptEckeySetRandom, SymCryptEckeyGetValue) if msbNumOfBits is non zero
-    // SymCryptEcDsaSign x2, SymCryptEcDsaVerify x2, SymCryptEcDhSecretAgreement
-    CHECK( g_nAllocs == nAllocs + 5 + 2*(msbNumOfBits?NUM_OF_HIGH_BIT_RESTRICTION_ITERATIONS:1), "Undesired allocation" );
+    // SymCryptEcDsaSign x2, SymCryptEcDsaVerify x3, SymCryptEcDhSecretAgreement
+    CHECK( g_nAllocs == nAllocs + 6 + 2*(msbNumOfBits?NUM_OF_HIGH_BIT_RESTRICTION_ITERATIONS:1), "Undesired allocation" );
     // =================================
     // =================================
 
@@ -873,7 +904,7 @@ testEcdsaVerify(
                 cbQx + cbQy,
                 SYMCRYPT_NUMBER_FORMAT_MSB_FIRST,
                 SYMCRYPT_ECPOINT_FORMAT_XY,
-                0,
+                SYMCRYPT_FLAG_KEY_RANGE_AND_PUBLIC_KEY_ORDER_VALIDATION,
                 pkPublic );
     CHECK3( scError == SYMCRYPT_NO_ERROR, "Public key set value failed for ECDSA record at line %lld", line );
 
@@ -959,7 +990,7 @@ testEcdsaSign(
                 0,
                 SYMCRYPT_NUMBER_FORMAT_MSB_FIRST,
                 SYMCRYPT_ECPOINT_FORMAT_XY,
-                0,
+                SYMCRYPT_FLAG_KEY_RANGE_VALIDATION,
                 pkPrivate );
     CHECK3( scError == SYMCRYPT_NO_ERROR, "Private key set value failed for ECDSA record at line %lld", line );
 
@@ -1023,7 +1054,7 @@ testEcdh(
     _In_reads_( cbSS )
         PCBYTE                  pbSs,
         SIZE_T                  cbSs,
-        UINT32                  flags,
+        UINT32                  secretAgreementFlags,
         LONGLONG                line)
 {
     SYMCRYPT_ERROR scError = SYMCRYPT_NO_ERROR;
@@ -1033,6 +1064,10 @@ testEcdh(
 
     BYTE pbSharedSecret[((SYMCRYPT_BITSIZE_P521 + 7)/8)] = { 0 };   // big enough to hold any shared secret
     BYTE pbPublicKey[2 * ((SYMCRYPT_BITSIZE_P521 + 7)/8)] = { 0 };  // or the X,Y coordinates of a public key
+    PCBYTE pbOptPublicKey = NULL;
+    SIZE_T cbOptPublicKey = 0;
+    BYTE randByte = g_rng.byte();
+    UINT32 flags = 0;
 
     // Allocate the keys
     pkPrivate = SymCryptEckeyAllocate( pCurve );
@@ -1040,19 +1075,47 @@ testEcdh(
     pkPublic = SymCryptEckeyAllocate( pCurve );
     CHECK3( pkPublic!=NULL, "Failure to allocate public key for ECDH record at line %lld", line );
 
-    // Set the private key
+    // Set the private and public key for party A
+    // Randomize flags and whether we provide the public key to exercise more codepaths
+    if (randByte & 1)
+    {
+        flags |= SYMCRYPT_FLAG_KEY_KEYPAIR_REGENERATION_VALIDATION;
+    }
+    switch((randByte >> 1) & 0x3)
+    {
+        case 0:
+            break;
+        case 1:
+            flags |= SYMCRYPT_FLAG_KEY_MINIMAL_VALIDATION;
+            break;
+        case 2:
+            flags |= SYMCRYPT_FLAG_KEY_RANGE_VALIDATION;
+            break;
+        case 3:
+        default:
+            flags |= SYMCRYPT_FLAG_KEY_RANGE_AND_PUBLIC_KEY_ORDER_VALIDATION;
+            break;
+    }
+    if (randByte & 0x8)
+    {
+        memcpy(pbPublicKey, pbQxa, cbQxa);
+        memcpy(pbPublicKey+cbQxa, pbQya, cbQya);
+        pbOptPublicKey = pbPublicKey;
+        cbOptPublicKey = cbQxa + cbQya;
+    }
+
     scError = SymCryptEckeySetValue(
                 pbSa,
                 cbSa,
-                NULL,
-                0,
+                pbOptPublicKey,
+                cbOptPublicKey,
                 SYMCRYPT_NUMBER_FORMAT_MSB_FIRST,
                 SYMCRYPT_ECPOINT_FORMAT_XY,
                 flags,
                 pkPrivate );
     CHECK3( scError == SYMCRYPT_NO_ERROR, "Private key set value failed for ECDH record at line %lld", line );
 
-    // Check if the public key created is correct
+    // Check if the set public key is correct
     scError = SymCryptEckeyGetValue(
                 pkPrivate,
                 NULL,
@@ -1067,7 +1130,29 @@ testEcdh(
     CHECK3( memcmp( pbQxa, pbPublicKey, cbQxa ) == 0, "Qx doesn't match for ECDH record at line %lld", line );
     CHECK3( memcmp( pbQya, pbPublicKey + cbQxa, cbQya ) == 0, "Qy doesn't match for ECDH record at line %lld", line );
 
-    // Set the public key
+    // Set the public key for party B
+    // Randomize flags to exercise more codepaths
+    flags = 0;
+    if (randByte & 0x10)
+    {
+        // Should do nothing as we won't provide private key, but doesn't hurt to check!
+        flags |= SYMCRYPT_FLAG_KEY_KEYPAIR_REGENERATION_VALIDATION;
+    }
+    switch((randByte >> 5) & 0x3)
+    {
+        case 0:
+            break;
+        case 1:
+            flags |= SYMCRYPT_FLAG_KEY_MINIMAL_VALIDATION;
+            break;
+        case 2:
+            flags |= SYMCRYPT_FLAG_KEY_RANGE_VALIDATION;
+            break;
+        case 3:
+        default:
+            flags |= SYMCRYPT_FLAG_KEY_RANGE_AND_PUBLIC_KEY_ORDER_VALIDATION;
+            break;
+    }
     memcpy(pbPublicKey, pbQxb, cbQxb);
     memcpy(pbPublicKey+cbQxb, pbQyb, cbQyb);
 
@@ -1078,7 +1163,7 @@ testEcdh(
                 cbQxb + cbQyb,
                 SYMCRYPT_NUMBER_FORMAT_MSB_FIRST,
                 SYMCRYPT_ECPOINT_FORMAT_XY,
-                0,
+                flags,
                 pkPublic );
     CHECK3( scError == SYMCRYPT_NO_ERROR, "Public key set value failed for ECDH record at line %lld", line );
 
@@ -1087,7 +1172,7 @@ testEcdh(
                 pkPrivate,
                 pkPublic,
                 SYMCRYPT_NUMBER_FORMAT_MSB_FIRST,
-                flags,
+                secretAgreementFlags,
                 pbSharedSecret,
                 SymCryptEcurveSizeofFieldElement( pCurve ));
     CHECK3( scError == SYMCRYPT_NO_ERROR, "SymCryptEcDhSecretAgreement failed for ECDH record at line %lld", line );
@@ -1214,7 +1299,7 @@ testEccEcdsaKats()
                 //
                 // Ecdh
                 //
-                CHECK3( katItem.dataItems.size() == 9, "Wrong number of items in ECDSA Verify record at line %lld", line );
+                CHECK3( katItem.dataItems.size() == 9, "Wrong number of items in ECDH record at line %lld", line );
 
                 BString katDiut = katParseData( katItem, "diut" );
                 BString katQiutX = katParseData( katItem, "qiutx" );
