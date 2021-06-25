@@ -1,0 +1,106 @@
+# azure-build-template.yml
+# Template for the build jobs that we want to run in the pipeline in Azure Dev Ops. This template is
+# instantiated in azure-pipelines.yml. For more information on templates, see
+# https://docs.microsoft.com/en-us/azure/devops/pipelines/process/templates?view=azure-devops
+
+
+parameters:
+- name: env
+  type: string
+  values:
+  - WindowsUserMode
+  - LinuxUserMode
+- name: arch
+  type: string
+  values:
+  - AMD64
+  - X86
+  - ARM64
+  - ARM
+- name: cc
+  type: string
+  values:
+  - cl
+  - gcc
+  - clang
+- name: cxx
+  type: string
+  values:
+  - cl
+  - g++
+  - clang++
+- name: buildType
+  type: string
+  values:
+  - Debug
+  - Release
+  - Sanitize
+- name: additionalCMakeArgs
+  type: string
+  default: ''
+
+steps:
+  - checkout: self  # self represents the repo where the initial Pipelines YAML file was found
+    submodules: recursive
+  # Initialize CMake
+  # cd bin; cmake .. -DCMAKE_TOOLCHAIN_FILE=../cmake-toolchain/{env}-{arch}.cmake -DCMAKE_C_COMPILER={CC} -DCMAKE_BUILD_TYPE={buildType} {additionalCMakeArgs}'
+  - task: ComponentGovernanceComponentDetection@0
+  - ${{ if eq(parameters.env, 'LinuxUserMode') }}:
+    - script: |
+        python -m pip install --upgrade pip setuptools wheel
+        pip install -r $(Build.SourcesDirectory)/scripts/requirements.txt
+      displayName: 'Install Python requirements'
+  - task: CMake@1
+    inputs:
+      workingDirectory: '$(Build.SourcesDirectory)/bin'
+      cmakeArgs: >-
+        ..
+        -DCMAKE_TOOLCHAIN_FILE=../cmake-toolchain/${{parameters.env}}-${{parameters.arch}}.cmake
+        -DCMAKE_C_COMPILER=${{parameters.cc}} -DCMAKE_CXX_COMPILER=${{parameters.cxx}}
+        -DCMAKE_BUILD_TYPE=${{parameters.buildType}}
+        ${{parameters.additionalCMakeArgs}}
+  # Build with CMake
+  # cmake --build . -j
+  - ${{ if eq(parameters.env, 'WindowsUserMode') }}:
+    - task: CMake@1
+      inputs:
+        workingDirectory: '$(Build.SourcesDirectory)/bin'
+        cmakeArgs: '--build . -j --config ${{parameters.buildType}}'
+    # Execute unit tests using the inline script
+    - script: |
+        cd bin\exe\${{parameters.arch}}\${{parameters.env}}\${{parameters.buildType}}
+        .\symcryptunittest.exe
+      displayName: 'Execute unit tests'
+      name: '${{parameters.env}}UnitTest_${{parameters.buildType}}'
+  - ${{ if eq(parameters.env, 'LinuxUserMode') }}:
+    - task: CMake@1
+      inputs:
+        workingDirectory: '$(Build.SourcesDirectory)/bin'
+        cmakeArgs: '--build . -j'
+    # Execute module test using the inline script
+    - ${{ if ne(parameters.buildType, 'Sanitize') }}:
+      - script: |
+          cd bin/exe/${{parameters.arch}}/${{parameters.env}}
+          ./symcryptmoduletest
+        displayName: 'Execute module test'
+    - script: |
+        cd bin/exe/${{parameters.arch}}/${{parameters.env}}
+        ./symcryptunittest
+      displayName: 'Execute unit tests'
+      name: '${{parameters.env}}UnitTest_${{parameters.buildType}}'
+  # Publish artifacts so they're available in the pipeline results
+  - publish: $(System.DefaultWorkingDirectory)/bin
+    artifact: 'drop-${{parameters.env}}-${{parameters.arch}}-${{parameters.cc}}-${{parameters.buildType}}'
+  # Publish artifacts, core dumps and temporary files on failure
+  - publish: $(System.DefaultWorkingDirectory)/bin
+    artifact: 'failed-${{parameters.env}}-${{parameters.arch}}-${{parameters.cc}}-${{parameters.buildType}}'
+    condition: failed()
+  - publish: /var/crash
+    artifact: 'crash-${{parameters.env}}-${{parameters.arch}}-${{parameters.cc}}-${{parameters.buildType}}'
+    condition: and(failed(), eq(variables['Agent.OS'], 'Linux'))
+  - publish: $(Agent.TempDirectory)
+    artifact: 'temp-${{parameters.env}}-${{parameters.arch}}-${{parameters.cc}}-${{parameters.buildType}}'
+    condition: failed()
+  - publish: $(Agent.WorkFolder)
+    artifact: 'work-${{parameters.env}}-${{parameters.arch}}-${{parameters.cc}}-${{parameters.buildType}}'
+    condition: failed()

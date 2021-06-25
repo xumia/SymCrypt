@@ -216,7 +216,7 @@ SymCryptRestoreYmm( _Inout_ PSYMCRYPT_EXTENDED_SAVE_DATA pSaveData );
 //
 // Function to check that the library has been initialized
 //
-#if defined( DBG )
+#if SYMCRYPT_DEBUG
 
 VOID
 SYMCRYPT_CALL
@@ -243,6 +243,18 @@ SymCryptCheckLibraryInitialized()
 
 #define HMAC_IPAD_BYTE   0x36
 #define HMAC_OPAD_BYTE   0x5c
+
+// SYMCRYPT_CPU_FEATURES
+#define SYMCRYPT_CPU_FEATURES_FOR_PCLMULQDQ_CODE  (SYMCRYPT_CPU_FEATURE_PCLMULQDQ | SYMCRYPT_CPU_FEATURE_SSSE3 | SYMCRYPT_CPU_FEATURE_SAVEXMM_NOFAIL )
+
+#define SYMCRYPT_CPU_FEATURES_FOR_AESNI_CODE (SYMCRYPT_CPU_FEATURE_SSSE3 | SYMCRYPT_CPU_FEATURE_AESNI)
+#define SYMCRYPT_CPU_FEATURES_FOR_AESNI_PCLMULQDQ_CODE (SYMCRYPT_CPU_FEATURES_FOR_AESNI_CODE | SYMCRYPT_CPU_FEATURES_FOR_PCLMULQDQ_CODE)
+#define SYMCRYPT_CPU_FEATURES_FOR_VAES_256_CODE (SYMCRYPT_CPU_FEATURES_FOR_AESNI_CODE | SYMCRYPT_CPU_FEATURE_VAES_256)
+#define SYMCRYPT_CPU_FEATURES_FOR_VAES_512_CODE (SYMCRYPT_CPU_FEATURES_FOR_AESNI_CODE | SYMCRYPT_CPU_FEATURE_VAES_512)
+
+#define SYMCRYPT_CPU_FEATURES_FOR_SHANI_CODE (SYMCRYPT_CPU_FEATURE_SSSE3 | SYMCRYPT_CPU_FEATURE_SHANI)
+
+#define SYMCRYPT_CPU_FEATURES_FOR_MULX (SYMCRYPT_CPU_FEATURE_BMI2 | SYMCRYPT_CPU_FEATURE_ADX | SYMCRYPT_CPU_FEATURE_SSE2 )
 
 //
 // ROTATE OPERATIONS
@@ -772,8 +784,6 @@ SymCryptGHashAppendDataPclmulqdq(
     _In_reads_( cbData )                    PCBYTE                      pbData,
     _In_                                    SIZE_T                      cbData );
 
-#define CPU_FEATURES_FOR_PCLMULQDQ  (SYMCRYPT_CPU_FEATURE_PCLMULQDQ | SYMCRYPT_CPU_FEATURE_SSSE3 | SYMCRYPT_CPU_FEATURE_SAVEXMM_NOFAIL )
-
 VOID
 SYMCRYPT_CALL
 SymCryptGHashResult(
@@ -944,7 +954,6 @@ C_ASSERT( sizeof( SYMCRYPT_SHA512_STATE_EXPORT_BLOB ) == SYMCRYPT_SHA512_STATE_E
 /////////////////////////////////////////////
 // AES internal functions
 
-#define SYMCRYPT_CPU_FEATURES_FOR_AESNI_CODE (SYMCRYPT_CPU_FEATURE_SSSE3 | SYMCRYPT_CPU_FEATURE_AESNI)   // The SSSE3 implies SSE, SSE2, and SSE3
 extern const SYMCRYPT_BLOCKCIPHER SymCryptAesBlockCipherNoOpt;
 
 VOID
@@ -1463,6 +1472,26 @@ extern const PCSYMCRYPT_PARALLEL_HASH SymCryptParallelSha256Algorithm;
 extern const PCSYMCRYPT_PARALLEL_HASH SymCryptParallelSha384Algorithm;
 extern const PCSYMCRYPT_PARALLEL_HASH SymCryptParallelSha512Algorithm;
 
+#define PAR_SCRATCH_ELEMENTS_256    (4+8+64)    // # scratch elements our parallel SHA256 implementations need
+#define PAR_SCRATCH_ELEMENTS_512    (4+8+80)    // # scratch elements our parallel SHA512 implementations need
+
+// pScratch must be 32B aligned, as it is used as an array of __m256i
+VOID
+SYMCRYPT_CALL
+SymCryptParallelSha256AppendBlocks_ymm(
+    _Inout_updates_( 8 )                                PSYMCRYPT_SHA256_CHAINING_STATE   * pChain,
+    _Inout_updates_( 8 )                                PCBYTE                            * ppByte,
+                                                        SIZE_T                              nBytes,
+    _Out_writes_( PAR_SCRATCH_ELEMENTS_256 * 32 )       PBYTE                               pScratch );
+
+// pScratch must be 32B aligned, as it is used as an array of __m256i
+VOID
+SYMCRYPT_CALL
+SymCryptParallelSha512AppendBlocks_ymm(
+    _Inout_updates_( 4 )                                PSYMCRYPT_SHA512_CHAINING_STATE   * pChain,
+    _Inout_updates_( 4 )                                PCBYTE                            * ppByte,
+                                                        SIZE_T                              nBytes,
+    _Out_writes_( PAR_SCRATCH_ELEMENTS_512 * 32 )       PBYTE                               pScratch );
 
 extern const SYMCRYPT_HASH SymCryptSha256Algorithm_default;
 extern const SYMCRYPT_HASH SymCryptSha384Algorithm_default;
@@ -1475,8 +1504,6 @@ SymCryptFatalIntercept( UINT32 fatalCode );
 extern const BYTE SymCryptSha256KATAnswer[32];
 extern const BYTE SymCryptSha384KATAnswer[48];
 extern const BYTE SymCryptSha512KATAnswer[64];
-
-#define SYMCRYPT_CPU_FEATURES_FOR_SHANI_CODE (SYMCRYPT_CPU_FEATURE_SSSE3 | SYMCRYPT_CPU_FEATURE_SHANI)   // The SSSE3 implies SSE, SSE2, and SSE3
 
 //
 // Arithmetic
@@ -1585,7 +1612,7 @@ extern const SYMCRYPT_MODULAR_FUNCTIONS g_SymCryptModFns[];
 extern const UINT32 g_SymCryptModFnsMask;
 
 //
-// Table entry that containst he information about an implementation.
+// Table entry that contains the information about an implementation.
 // Allows generic code to make the decision.
 // First entry in the table that is allowed is chosen, last entry always matches everything
 //
@@ -1601,8 +1628,9 @@ typedef struct _SYMCRYPT_MODULUS_TYPE_SELECTION_ENTRY
     UINT32                  maxBits;            // Max # bits that the actual value of the modulus is, 0 = no limit
     UINT32                  modulusFeatures;    // Required features of the modulus
 } SYMCRYPT_MODULUS_TYPE_SELECTION_ENTRY, *PSYMCRYPT_MODULUS_TYPE_SELECTION_ENTRY;
+typedef const SYMCRYPT_MODULUS_TYPE_SELECTION_ENTRY* PCSYMCRYPT_MODULUS_TYPE_SELECTION_ENTRY;
 
-extern SYMCRYPT_MODULUS_TYPE_SELECTION_ENTRY SymCryptModulusTypeSelections[];       // Array can be any size...
+extern const SYMCRYPT_MODULUS_TYPE_SELECTION_ENTRY SymCryptModulusTypeSelections[];       // Array can be any size...
 
 
 // Check that the size is a power of 2
@@ -1714,8 +1742,6 @@ C_ASSERT( (SYMCRYPT_MODULAR_FUNCTIONS_SIZE & (SYMCRYPT_MODULAR_FUNCTIONS_SIZE-1)
     &SymCryptFdefModulusCopyFixupMontgomery,\
     &SymCryptFdefModulusInitMontgomery,\
 }
-
-#define SYMCRYPT_CPU_FEATURES_FOR_MULX (SYMCRYPT_CPU_FEATURE_BMI2 | SYMCRYPT_CPU_FEATURE_ADX | SYMCRYPT_CPU_FEATURE_SSE2 )
 
 VOID
 SYMCRYPT_CALL
@@ -2187,11 +2213,11 @@ SymCryptFdefModElementToIntGeneric(
 SYMCRYPT_ERROR
 SYMCRYPT_CALL
 SymCryptFdefRawSetValue(
-    _In_reads_bytes_(cbSrc)     PCBYTE                  pbSrc,
-                                SIZE_T                  cbSrc,
-                                SYMCRYPT_NUMBER_FORMAT  format,
-    _Out_writes_(nWords)        PUINT32                 pDst,
-                                UINT32                  nWords );
+    _In_reads_bytes_(cbSrc)                             PCBYTE                  pbSrc,
+                                                        SIZE_T                  cbSrc,
+                                                        SYMCRYPT_NUMBER_FORMAT  format,
+    _Out_writes_(nDigits * SYMCRYPT_FDEF_DIGIT_NUINT32) PUINT32                 pDst,
+                                                        UINT32                  nDigits );
 
 SYMCRYPT_ERROR
 SYMCRYPT_CALL
@@ -2225,11 +2251,11 @@ SymCryptFdefModElementSetValueNegUint32(
 SYMCRYPT_ERROR
 SYMCRYPT_CALL
 SymCryptFdefRawGetValue(
-    _In_reads_(nWords)          PCUINT32                pSrc,
-                                UINT32                  nWords,
-    _Out_writes_bytes_(cbBytes) PBYTE                   pbDst,
-                                SIZE_T                  cbDst,
-                                SYMCRYPT_NUMBER_FORMAT  format );
+    _In_reads_(nDigits * SYMCRYPT_FDEF_DIGIT_NUINT32)   PCUINT32                pSrc,
+                                                        UINT32                  nDigits,
+    _Out_writes_bytes_(cbBytes)                         PBYTE                   pbDst,
+                                                        SIZE_T                  cbDst,
+                                                        SYMCRYPT_NUMBER_FORMAT  format );
 
 SYMCRYPT_ERROR
 SYMCRYPT_CALL
@@ -2467,14 +2493,6 @@ SymCryptFdefRawSubUint32(
     _Out_writes_bytes_(nDigits * SYMCRYPT_FDEF_DIGIT_SIZE ) PUINT32     pDst,
                                                             UINT32      nDigits );
 
-UINT32
-SYMCRYPT_CALL
-SymCryptFdefRawMaskedAddUint32(
-    _Inout_updates_( nWords )   PUINT32     pAcc,
-    _In_reads_( nWords )        PCUINT32    pSrc,
-                                UINT32      mask,
-                                UINT32      nWords );
-
 VOID
 SYMCRYPT_CALL
 SymCryptFdefModMulGeneric(
@@ -2498,16 +2516,6 @@ SymCryptFdefModMulMontgomery(
 VOID
 SYMCRYPT_CALL
 SymCryptFdefModMulMontgomery256Asm(
-    _In_                            PCSYMCRYPT_MODULUS      pMod,
-    _In_                            PCSYMCRYPT_MODELEMENT   pSrc1,
-    _In_                            PCSYMCRYPT_MODELEMENT   pSrc2,
-    _Out_                           PSYMCRYPT_MODELEMENT    pDst,
-    _Out_writes_bytes_( cbScratch ) PBYTE                   pbScratch,
-                                    SIZE_T                  cbScratch );
-
-VOID
-SYMCRYPT_CALL
-SymCryptFdefModMulMontgomery256Test(
     _In_                            PCSYMCRYPT_MODULUS      pMod,
     _In_                            PCSYMCRYPT_MODELEMENT   pSrc1,
     _In_                            PCSYMCRYPT_MODELEMENT   pSrc2,
@@ -2659,19 +2667,19 @@ SymCryptFdefRawMul(
 VOID
 SYMCRYPT_CALL
 SymCryptFdefRawMulMulx(
-    _In_reads_(nDgigits1*SYMCRYPT_FDEF_DIGIT_NUINT32)   PCUINT32    pSrc1,
-                                                        UINT32      nDigits1,
-    _In_reads_(nDigits2*SYMCRYPT_FDEF_DIGIT_NUINT32)    PCUINT32    pSrc2,
-                                                        UINT32      nDigits2,
-    _Out_writes_(nWords1 + nWords2)                     PUINT32     pDst );
+    _In_reads_(nDigits1*SYMCRYPT_FDEF_DIGIT_NUINT32)                PCUINT32    pSrc1,
+                                                                    UINT32      nDigits1,
+    _In_reads_(nDigits2*SYMCRYPT_FDEF_DIGIT_NUINT32)                PCUINT32    pSrc2,
+                                                                    UINT32      nDigits2,
+    _Out_writes_((nDigits1+nDigits2)*SYMCRYPT_FDEF_DIGIT_NUINT32)   PUINT32     pDst );
 
 VOID
 SYMCRYPT_CALL
 SymCryptFdefRawMulMulx1024(
-    _In_reads_(nDgigits1*SYMCRYPT_FDEF_DIGIT_NUINT32)   PCUINT32    pSrc1,
-    _In_reads_(nDigits2*SYMCRYPT_FDEF_DIGIT_NUINT32)    PCUINT32    pSrc2,
+    _In_reads_(nDigits*SYMCRYPT_FDEF_DIGIT_NUINT32)     PCUINT32    pSrc1,
+    _In_reads_(nDigits*SYMCRYPT_FDEF_DIGIT_NUINT32)     PCUINT32    pSrc2,
                                                         UINT32      nDigits,
-    _Out_writes_(nWords1 + nWords2)                     PUINT32     pDst );
+    _Out_writes_(2*nDigits*SYMCRYPT_FDEF_DIGIT_NUINT32) PUINT32     pDst );
 
 VOID
 SYMCRYPT_CALL
@@ -2707,7 +2715,7 @@ UINT32
 SYMCRYPT_CALL
 SymCryptFdefRawIsEqualUint32(
     _In_    PCUINT32        pSrc1,
-            UINT32          nWords,
+            UINT32          nDigits,
     _In_    UINT32          u32Src2 );
 
 UINT32
@@ -2884,27 +2892,27 @@ SymCryptFdef369MaskedCopyAsm(
 VOID
 SYMCRYPT_CALL
 SymCryptFdefRawMulAsm(
-    _In_reads_(nDgigits1*SYMCRYPT_FDEF_DIGIT_NUINT32)   PCUINT32    pSrc1,
-                                                        UINT32      nDigits1,
-    _In_reads_(nDigits2*SYMCRYPT_FDEF_DIGIT_NUINT32)    PCUINT32    pSrc2,
-                                                        UINT32      nDigits2,
-    _Out_writes_(nWords1 + nWords2)                     PUINT32     pDst );
+    _In_reads_(nDigits1*SYMCRYPT_FDEF_DIGIT_NUINT32)                PCUINT32    pSrc1,
+                                                                    UINT32      nDigits1,
+    _In_reads_(nDigits2*SYMCRYPT_FDEF_DIGIT_NUINT32)                PCUINT32    pSrc2,
+                                                                    UINT32      nDigits2,
+    _Out_writes_((nDigits1+nDigits2)*SYMCRYPT_FDEF_DIGIT_NUINT32)   PUINT32     pDst );
 
 VOID
 SYMCRYPT_CALL
 SymCryptFdefRawSquareAsm(
-    _In_reads_(nDgigits*SYMCRYPT_FDEF_DIGIT_NUINT32)    PCUINT32    pSrc,
+    _In_reads_(nDigits*SYMCRYPT_FDEF_DIGIT_NUINT32)     PCUINT32    pSrc,
                                                         UINT32      nDigits,
-    _Out_writes_(2*nWords)                              PUINT32     pDst );
+    _Out_writes_(2*nDigits*SYMCRYPT_FDEF_DIGIT_NUINT32) PUINT32     pDst );
 
 VOID
 SYMCRYPT_CALL
 SymCryptFdef369RawMulAsm(
-    _In_reads_(nDgigits1*SYMCRYPT_FDEF_DIGIT_NUINT32)   PCUINT32    pSrc1,
-                                                        UINT32      nDigits1,
-    _In_reads_(nDigits2*SYMCRYPT_FDEF_DIGIT_NUINT32)    PCUINT32    pSrc2,
-                                                        UINT32      nDigits2,
-    _Out_writes_(nWords1 + nWords2)                     PUINT32     pDst );
+    _In_reads_(nDigits1*SYMCRYPT_FDEF_DIGIT_NUINT32)                PCUINT32    pSrc1,
+                                                                    UINT32      nDigits1,
+    _In_reads_(nDigits2*SYMCRYPT_FDEF_DIGIT_NUINT32)                PCUINT32    pSrc2,
+                                                                    UINT32      nDigits2,
+    _Out_writes_((nDigits1+nDigits2)*SYMCRYPT_FDEF_DIGIT_NUINT32)   PUINT32     pDst );
 
 VOID
 SYMCRYPT_CALL
@@ -2912,14 +2920,14 @@ SymCryptFdefRawMul512Asm(
     _In_reads_(nDigits*SYMCRYPT_FDEF_DIGIT_NUINT32)     PCUINT32    pSrc1,
     _In_reads_(nDigits*SYMCRYPT_FDEF_DIGIT_NUINT32)     PCUINT32    pSrc2,
                                                         UINT32      nDigits,
-    _Out_writes_(2*nWords)                              PUINT32     pDst );
+    _Out_writes_(2*nDigits*SYMCRYPT_FDEF_DIGIT_NUINT32) PUINT32     pDst );
 
 VOID
 SYMCRYPT_CALL
 SymCryptFdefRawSquare512Asm(
     _In_reads_(nDigits*SYMCRYPT_FDEF_DIGIT_NUINT32)     PCUINT32    pSrc,
                                                         UINT32      nDigits,
-    _Out_writes_(2*nWords)                              PUINT32     pDst );
+    _Out_writes_(2*nDigits*SYMCRYPT_FDEF_DIGIT_NUINT32) PUINT32     pDst );
 
 VOID
 SYMCRYPT_CALL
@@ -2927,75 +2935,93 @@ SymCryptFdefRawMul1024Asm(
     _In_reads_(nDigits*SYMCRYPT_FDEF_DIGIT_NUINT32)     PCUINT32    pSrc1,
     _In_reads_(nDigits*SYMCRYPT_FDEF_DIGIT_NUINT32)     PCUINT32    pSrc2,
                                                         UINT32      nDigits,
-    _Out_writes_(2*nWords)                              PUINT32     pDst );
+    _Out_writes_(2*nDigits*SYMCRYPT_FDEF_DIGIT_NUINT32) PUINT32     pDst );
 
 VOID
 SYMCRYPT_CALL
 SymCryptFdefRawSquare1024Asm(
     _In_reads_(nDigits*SYMCRYPT_FDEF_DIGIT_NUINT32)     PCUINT32    pSrc,
                                                         UINT32      nDigits,
-    _Out_writes_(2*nWords)                              PUINT32     pDst );
+    _Out_writes_(2*nDigits*SYMCRYPT_FDEF_DIGIT_NUINT32) PUINT32     pDst );
 
 VOID
 SYMCRYPT_CALL
 SymCryptFdefMontgomeryReduceAsm(
     _In_                            PCSYMCRYPT_MODULUS      pmMod,
-    _In_                            PUINT32                 pSrc,
+    _Inout_                         PUINT32                 pSrc,
     _Out_                           PUINT32                 pDst );
 
 VOID
 SYMCRYPT_CALL
 SymCryptFdefMontgomeryReduce256Asm(
     _In_                            PCSYMCRYPT_MODULUS      pmMod,
-    _In_                            PUINT32                 pSrc,
+    _Inout_                         PUINT32                 pSrc,
     _Out_                           PUINT32                 pDst );
 
 VOID
 SYMCRYPT_CALL
 SymCryptFdefMontgomeryReduce512Asm(
     _In_                            PCSYMCRYPT_MODULUS      pmMod,
-    _In_                            PUINT32                 pSrc,
+    _Inout_                         PUINT32                 pSrc,
     _Out_                           PUINT32                 pDst );
 
 VOID
 SYMCRYPT_CALL
 SymCryptFdefMontgomeryReduce1024Asm(
     _In_                            PCSYMCRYPT_MODULUS      pmMod,
-    _In_                            PUINT32                 pSrc,
+    _Inout_                         PUINT32                 pSrc,
     _Out_                           PUINT32                 pDst );
 
 VOID
 SYMCRYPT_CALL
 SymCryptFdef369MontgomeryReduce(
     _In_                            PCSYMCRYPT_MODULUS      pmMod,
-    _In_                            PUINT32                 pSrc,
+    _Inout_                         PUINT32                 pSrc,
     _Out_                           PUINT32                 pDst );
 
 VOID
 SYMCRYPT_CALL
 SymCryptFdef369MontgomeryReduceAsm(
     _In_                            PCSYMCRYPT_MODULUS      pmMod,
-    _In_                            PUINT32                 pSrc,
+    _Inout_                         PUINT32                 pSrc,
     _Out_                           PUINT32                 pDst );
 
 VOID
 SYMCRYPT_CALL
 SymCryptFdefMontgomeryReduceMulx(
     _In_                            PCSYMCRYPT_MODULUS      pmMod,
-    _In_                            PUINT32                 pSrc,
+    _Inout_                         PUINT32                 pSrc,
     _Out_                           PUINT32                 pDst );
 
 VOID
 SYMCRYPT_CALL
 SymCryptFdefMontgomeryReduceMulx1024(
     _In_                            PCSYMCRYPT_MODULUS      pmMod,
-    _In_                            PUINT32                 pSrc,
+    _Inout_                         PUINT32                 pSrc,
     _Out_                           PUINT32                 pDst );
 
 // Helper macro for checking for specific key validation flag using bits 4 and 5 in a flags variable
 // Must be updated if SYMCRYPT_FLAG_KEY_MINIMAL_VALIDATION, SYMCRYPT_FLAG_KEY_RANGE_VALIDATION, or
 // SYMCRYPT_FLAG_KEY_RANGE_AND_PUBLIC_KEY_ORDER_VALIDATION are updated.
 #define SYMCRYPT_FLAG_KEY_VALIDATION_MASK   SYMCRYPT_FLAG_KEY_RANGE_AND_PUBLIC_KEY_ORDER_VALIDATION
+
+// Flag for bypassing FIPS selftests. Only intended to be used internally for selftests which have
+// to call themselves, to prevent infinite recursion. (e.g. SymCryptDhSecretAgreement calls
+// SymCryptDhSecretAgreementSelftest which calls SymCryptDhSecretAgreement.)
+#define SYMCRYPT_FLAG_BYPASS_FIPS_SELFTEST 0x80000000
+
+// Macro for executing a selftest and setting the corresponding flag
+#define SYMCRYPT_ON_DEMAND_SELFTEST(SelftestFunction, SelftestFlag) \
+_Pragma( "warning( suppress: 4127 )" ) /* conditional expression is constant */ \
+if( SYMCRYPT_DO_FIPS_SELFTESTS && \
+    ((flags & SYMCRYPT_FLAG_BYPASS_FIPS_SELFTEST) == 0) && \
+    ((g_SymCryptFipsSelftestsPerformed & SelftestFlag) == 0) ) \
+{ \
+    SelftestFunction( ); \
+\
+    ATOMIC_OR32( &g_SymCryptFipsSelftestsPerformed, SelftestFlag );\
+}\
+flags &= ~SYMCRYPT_FLAG_BYPASS_FIPS_SELFTEST;
 
 typedef struct _SYMCRYPT_DLGROUP_DH_SAFEPRIME_PARAMS {
     SYMCRYPT_DLGROUP_DH_SAFEPRIMETYPE eDhSafePrimeType;
@@ -3424,6 +3450,7 @@ SymCryptPositiveWidthNafRecoding(
 
 // Atomics.
 #if SYMCRYPT_MS_VC
+#include <intrin.h>
 #define ATOMIC_OR32(_dest, _val)     _InterlockedOr( (volatile LONG *)(_dest), (LONG)(_val) )
 #elif SYMCRYPT_APPLE_CC
 #include <libkern/OSAtomic.h>   // atomic operations

@@ -49,6 +49,7 @@
     #include <stdlib.h>
     #include <math.h>
     #include <unistd.h>
+    #include <x86intrin.h>
 
     #include <vector>
     #include <string>
@@ -153,6 +154,7 @@
     #include <stdio.h>
     #include <stdlib.h>
     #include <math.h>
+    #include <intrin.h>
 
     #include <powrprof.h>
 
@@ -179,6 +181,7 @@
     {
         void __cpuid(int CPUInfo[4], int InfoType );
     }
+
 #endif
 
 
@@ -348,7 +351,11 @@ extern "C" {
     #define VSNPRINTF_S(a,b,c,d,...)    std::vsnprintf((a),(b),(d),__VA_ARGS__)
 #ifdef __linux__
     #include <sys/random.h>
-    #define GENRANDOM(pbBuf, cbBuf)     getrandom( (void *) pbBuf, cbBuf, 0 )
+    // write as a function wrapper to handle unexpected return values as errors
+    FORCEINLINE
+    ssize_t GENRANDOM(void * pbBuf, size_t cbBuf) {
+        return (getrandom( pbBuf, cbBuf, 0 ) == cbBuf) ? 0 : -1;
+    }
 #else
     #error "Oh no, need a GENRANDOM() implementation"
 #endif
@@ -922,7 +929,7 @@ extern DWORD g_osVersion;       // 0xaabb for major version aa and minor version
 
 _Analysis_noreturn_
 VOID
-fatal( _In_ PSTR file, ULONG line, _In_ PSTR text, ... );
+fatal( _In_ PCSTR file, ULONG line, _In_ PCSTR text, ... );
 
 typedef CONST CHAR * PCCHAR;
 

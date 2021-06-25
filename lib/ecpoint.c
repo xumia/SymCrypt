@@ -89,7 +89,6 @@ SymCryptEcpointCreateEx(
 
     SYMCRYPT_ASSERT( pCurve->FMod != 0 );
     SYMCRYPT_ASSERT( pCurve->cbModElement != 0 );
-	// dcl - this is not an expensive call, and could be checked in release, just one mul and one add
     SYMCRYPT_ASSERT( cbBuffer >=  SymCryptSizeofEcpointEx( pCurve->cbModElement, numOfCoordinates ) );
 
     SYMCRYPT_ASSERT_ASYM_ALIGNED( pbBuffer );
@@ -113,7 +112,10 @@ SymCryptEcpointCreateEx(
     }
 
     // Setting the normalized flag
-    poPoint->normalized = 0;
+    poPoint->normalized = FALSE;
+
+    // Setting the curve
+    poPoint->pCurve     = pCurve;
 
     // Setting the magic
     SYMCRYPT_SET_MAGIC( poPoint );
@@ -148,6 +150,8 @@ VOID
 SYMCRYPT_CALL
 SymCryptEcpointWipe( _In_ PCSYMCRYPT_ECURVE pCurve, _Out_ PSYMCRYPT_ECPOINT poDst )
 {
+    SYMCRYPT_ASSERT( SymCryptEcurveIsSame(pCurve, poDst->pCurve) );
+
     // Wipe the whole structure in one go.
     SymCryptWipe( poDst, SymCryptSizeofEcpointFromCurve( pCurve ) );
 }
@@ -158,7 +162,15 @@ SymCryptEcpointCopy(
     _In_    PCSYMCRYPT_ECPOINT  poSrc,
     _Out_   PSYMCRYPT_ECPOINT   poDst )
 {
-    SymCryptEcpointMaskedCopy( pCurve, poSrc, poDst, 0xffffffff );
+    SYMCRYPT_ASSERT( SymCryptEcurveIsSame(pCurve, poSrc->pCurve) && SymCryptEcurveIsSame(pCurve, poDst->pCurve) );
+
+    if( poSrc != poDst )
+    {
+        // Unconditionally set the normalization state of destination to source
+        poDst->normalized = poSrc->normalized;
+
+        memcpy(poDst + 1, poSrc + 1, SYMCRYPT_INTERNAL_NUMOF_COORDINATES(pCurve->eCoordinates) * pCurve->FModDigits * SYMCRYPT_FDEF_DIGIT_SIZE);
+    }
 }
 
 VOID
@@ -168,13 +180,12 @@ SymCryptEcpointMaskedCopy(
     _Out_   PSYMCRYPT_ECPOINT   poDst,
             UINT32              mask )
 {
-	// dcl - hope you realize that this allows 0xffffffff and 0
-	// If that's actually what you wanted to accomplish, it would be easier to read
-	// if it were written as:
-	// SYMCRYPT_ASSERT( (mask == 0) || (mask == 0xffffffff) );
-    SYMCRYPT_ASSERT( (mask + 1) < 2 );
+    SYMCRYPT_ASSERT( (mask == 0) || (mask == 0xffffffff) );
+    SYMCRYPT_ASSERT( SymCryptEcurveIsSame(pCurve, poSrc->pCurve) && SymCryptEcurveIsSame(pCurve, poDst->pCurve) );
 
-    poDst->normalized = (poSrc->normalized & mask) | (poDst->normalized & ~mask);
+    // Unconditionally combine the normalization state of source and destination to avoid potential for
+    // leak of mask. Normalized is a non-secret value and is permitted to be leaked by side-channels
+    poDst->normalized &= poSrc->normalized;
 
 	// dcl - this looks like the equivalent of memcpy
 	// should be proven that arguments cannot be the result of an integer overflow
@@ -219,6 +230,7 @@ SymCryptEcpointTransform(
     PSYMCRYPT_MODELEMENT peT[2] = { 0 };    // Temporaries
 
     SYMCRYPT_ASSERT( (flags & ~SYMCRYPT_FLAG_DATA_PUBLIC) == 0 );
+    SYMCRYPT_ASSERT( SymCryptEcurveIsSame(pCurve, poSrc->pCurve) && SymCryptEcurveIsSame(pCurve, poDst->pCurve) );
     SYMCRYPT_ASSERT( cbScratch >= SYMCRYPT_MAX(  SYMCRYPT_SCRATCH_BYTES_FOR_COMMON_MOD_OPERATIONS( pCurve->FModDigits ),
                                         SYMCRYPT_SCRATCH_BYTES_FOR_MODINV( pCurve->FModDigits )) +
                                   2 * pCurve->cbModElement );
@@ -315,7 +327,7 @@ SymCryptEcpointTransform(
             SymCryptModElementSetValueUint32( 1, pCurve->FMod, peDst, pbScratch, cbScratch );
 
             // Setting the normalized flag
-            poDst->normalized = (UINT32)(-1);
+            poDst->normalized = TRUE;
         }
         else
         {
@@ -368,7 +380,7 @@ SymCryptEcpointTransform(
                 }
 
                 // Setting the normalized flag
-                poDst->normalized = (UINT32)(-1);
+                poDst->normalized = TRUE;
             }
             else if (coTo == SYMCRYPT_ECPOINT_COORDINATES_SINGLE_PROJECTIVE)
             {
@@ -379,7 +391,7 @@ SymCryptEcpointTransform(
                 SymCryptModElementSetValueUint32( 1, pCurve->FMod, peDst, pbScratch, cbScratch );
 
                 // Setting the normalized flag
-                poDst->normalized = (UINT32)(-1);
+                poDst->normalized = TRUE;
             }
         }
         else

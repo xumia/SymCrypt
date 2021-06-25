@@ -32,7 +32,6 @@ set(SOURCES
     testDsa.cpp
     testScsTable.cpp
     testScsTools.cpp
-    testIEEE802_11SaeCustom.cpp
     perf.cpp
   )
 
@@ -43,6 +42,7 @@ if(WIN32)
         capi_implementations.cpp
         cng_implementations.cpp
         msbignum_implementations.cpp
+        testIEEE802_11SaeCustom.cpp
         # testInterop.cpp
         # testRsa.cpp
         # testRsa_sc.cpp
@@ -55,12 +55,19 @@ if(WIN32)
     )
 endif()
 
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64")
-    list(APPEND SOURCES amd64/saveymm.asm)
-    set_source_files_properties(amd64/saveymm.asm PROPERTY LANGUAGE ASM_MASM)
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "X86")
-    list(APPEND SOURCES i386/savexmm.asm)
-    set_source_files_properties(i386/savexmm.asm PROPERTY LANGUAGE ASM_MASM)
+if(WIN32)
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64")
+        list(APPEND SOURCES amd64/saveymm.asm)
+        set_source_files_properties(amd64/saveymm.asm PROPERTY LANGUAGE ASM_MASM)
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "X86")
+        list(APPEND SOURCES i386/savexmm.asm)
+        set_source_files_properties(i386/savexmm.asm PROPERTY LANGUAGE ASM_MASM)
+    endif()
+else()
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64")
+        list(APPEND SOURCES amd64/saveymm-gas.asm)
+        set_source_files_properties(amd64/saveymm-gas.asm PROPERTY LANGUAGE ASM)
+    endif()
 endif()
 
 # Need to include an asm file from here.

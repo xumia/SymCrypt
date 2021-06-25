@@ -127,6 +127,7 @@ SymCryptShortWeierstrassSetZero(
     PSYMCRYPT_MODELEMENT peTmp = NULL;
 
     SYMCRYPT_ASSERT( pCurve->type == SYMCRYPT_ECURVE_TYPE_SHORT_WEIERSTRASS );
+    SYMCRYPT_ASSERT( SymCryptEcurveIsSame(pCurve, poDst->pCurve) );
     SYMCRYPT_ASSERT( cbScratch >= SYMCRYPT_SCRATCH_BYTES_FOR_COMMON_MOD_OPERATIONS( pCurve->FModDigits ) );
 
     // Getting handle to X
@@ -158,6 +159,7 @@ SymCryptShortWeierstrassSetDistinguished(
             SIZE_T              cbScratch )
 {
     SYMCRYPT_ASSERT( pCurve->type == SYMCRYPT_ECURVE_TYPE_SHORT_WEIERSTRASS );
+    SYMCRYPT_ASSERT( SymCryptEcurveIsSame(pCurve, poDst->pCurve) );
 
     UNREFERENCED_PARAMETER( pbScratch );
     UNREFERENCED_PARAMETER( cbScratch );
@@ -200,6 +202,7 @@ SymCryptShortWeierstrassIsEqual(
     PSYMCRYPT_MODELEMENT peT[4] = { 0 };  // Temporaries
 
     SYMCRYPT_ASSERT( pCurve->type == SYMCRYPT_ECURVE_TYPE_SHORT_WEIERSTRASS );
+    SYMCRYPT_ASSERT( SymCryptEcurveIsSame(pCurve, poSrc1->pCurve) && SymCryptEcurveIsSame(pCurve, poSrc2->pCurve) );
     SYMCRYPT_ASSERT( (flags & ~(SYMCRYPT_FLAG_ECPOINT_EQUAL|SYMCRYPT_FLAG_ECPOINT_NEG_EQUAL)) == 0 );
     SYMCRYPT_ASSERT( cbScratch >= SYMCRYPT_SCRATCH_BYTES_FOR_COMMON_MOD_OPERATIONS( pCurve->FModDigits ) + 4 * pCurve->cbModElement );
 
@@ -266,6 +269,7 @@ SymCryptShortWeierstrassIsZero(
     PSYMCRYPT_MODELEMENT peZ = NULL;    // Pointer to Z
 
     SYMCRYPT_ASSERT( pCurve->type == SYMCRYPT_ECURVE_TYPE_SHORT_WEIERSTRASS );
+    SYMCRYPT_ASSERT( SymCryptEcurveIsSame(pCurve, poSrc->pCurve) );
 
     UNREFERENCED_PARAMETER( pbScratch );
     UNREFERENCED_PARAMETER( cbScratch );
@@ -299,6 +303,7 @@ SymCryptShortWeierstrassOnCurve(
     PSYMCRYPT_MODELEMENT peT[2] = { 0 }; // Temporaries
 
     SYMCRYPT_ASSERT( pCurve->type == SYMCRYPT_ECURVE_TYPE_SHORT_WEIERSTRASS );
+    SYMCRYPT_ASSERT( SymCryptEcurveIsSame(pCurve, poSrc->pCurve) );
     SYMCRYPT_ASSERT( cbScratch >= SYMCRYPT_SCRATCH_BYTES_FOR_COMMON_MOD_OPERATIONS( pCurve->FModDigits ) + 2 * pCurve->cbModElement );
 
     // Creating temporaries
@@ -389,6 +394,7 @@ SymCryptShortWeierstrassDouble(
     PCSYMCRYPT_MODELEMENT peZ1 = SYMCRYPT_INTERNAL_ECPOINT_COORDINATE( 2, pCurve, poSrc );
 
     SYMCRYPT_ASSERT( pCurve->type == SYMCRYPT_ECURVE_TYPE_SHORT_WEIERSTRASS );
+    SYMCRYPT_ASSERT( SymCryptEcurveIsSame(pCurve, poSrc->pCurve) && SymCryptEcurveIsSame(pCurve, poDst->pCurve) );
     SYMCRYPT_ASSERT( cbScratch >= SYMCRYPT_SCRATCH_BYTES_FOR_COMMON_MOD_OPERATIONS( pCurve->FModDigits ) + 6 * pCurve->cbModElement );
 
     UNREFERENCED_PARAMETER( flags );
@@ -502,6 +508,7 @@ SymCryptShortWeierstrassAddDiffNonZero(
     PSYMCRYPT_MODELEMENT peT[8] = { 0 };  // Temporaries
 
     SYMCRYPT_ASSERT( pCurve->type == SYMCRYPT_ECURVE_TYPE_SHORT_WEIERSTRASS );
+    SYMCRYPT_ASSERT( SymCryptEcurveIsSame(pCurve, poSrc1->pCurve) && SymCryptEcurveIsSame(pCurve, poSrc2->pCurve) && SymCryptEcurveIsSame(pCurve, poDst->pCurve) );
     SYMCRYPT_ASSERT( cbScratch >= SYMCRYPT_SCRATCH_BYTES_FOR_COMMON_MOD_OPERATIONS( pCurve->FModDigits ) + 8 * pCurve->cbModElement );
 
     // Creating temporaries
@@ -593,6 +600,7 @@ SymCryptShortWeierstrassAddSideChannelUnsafe(
     PSYMCRYPT_MODELEMENT peT[8] = { 0 };  // Temporaries
 
     SYMCRYPT_ASSERT( pCurve->type == SYMCRYPT_ECURVE_TYPE_SHORT_WEIERSTRASS );
+    SYMCRYPT_ASSERT( SymCryptEcurveIsSame(pCurve, poSrc1->pCurve) && SymCryptEcurveIsSame(pCurve, poSrc2->pCurve) && SymCryptEcurveIsSame(pCurve, poDst->pCurve) );
     SYMCRYPT_ASSERT( cbScratch >= SYMCRYPT_SCRATCH_BYTES_FOR_COMMON_MOD_OPERATIONS( pCurve->FModDigits ) + 8 * pCurve->cbModElement );
 
     // Check if one of the points is zero
@@ -739,6 +747,7 @@ SymCryptShortWeierstrassAdd(
     PSYMCRYPT_ECPOINT   poQ1 = NULL;
 
     SYMCRYPT_ASSERT( pCurve->type == SYMCRYPT_ECURVE_TYPE_SHORT_WEIERSTRASS );
+    SYMCRYPT_ASSERT( SymCryptEcurveIsSame(pCurve, poSrc1->pCurve) && SymCryptEcurveIsSame(pCurve, poSrc2->pCurve) && SymCryptEcurveIsSame(pCurve, poDst->pCurve) );
     SYMCRYPT_ASSERT( cbScratch >= SYMCRYPT_INTERNAL_SCRATCH_BYTES_FOR_COMMON_ECURVE_OPERATIONS( pCurve ) );     // We will need the entire scratch space
 
     if ((flags & SYMCRYPT_FLAG_DATA_PUBLIC) != 0)
@@ -800,6 +809,7 @@ SymCryptShortWeierstrassNegate(
     PSYMCRYPT_MODELEMENT peTmp = NULL;
 
     SYMCRYPT_ASSERT( pCurve->type == SYMCRYPT_ECURVE_TYPE_SHORT_WEIERSTRASS );
+    SYMCRYPT_ASSERT( SymCryptEcurveIsSame(pCurve, poSrc->pCurve) );
     SYMCRYPT_ASSERT( cbScratch >= SYMCRYPT_SCRATCH_BYTES_FOR_COMMON_MOD_OPERATIONS( pCurve->FModDigits ) + pCurve->cbModElement);
 
     peTmp = SymCryptModElementCreate(

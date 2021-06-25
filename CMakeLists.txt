@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.9)
+cmake_minimum_required(VERSION 3.13.0)
 
 project(SymCrypt)
 
@@ -24,15 +24,15 @@ message(STATUS "Target: ${CMAKE_SYSTEM_NAME} ${CMAKE_SYSTEM_PROCESSOR} ${SYMCRYP
 
 # Set output directories binaries
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib/${CMAKE_SYSTEM_PROCESSOR}/${SYMCRYPT_TARGET_ENV})
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib/${CMAKE_SYSTEM_PROCESSOR}/${SYMCRYPT_TARGET_ENV})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/module/${CMAKE_SYSTEM_PROCESSOR}/${SYMCRYPT_TARGET_ENV})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/exe/${CMAKE_SYSTEM_PROCESSOR}/${SYMCRYPT_TARGET_ENV})
 
 if(WIN32 AND SYMCRYPT_TARGET_ENV MATCHES "WindowsUserMode")
-    # Set DBG=1 and enable ASM_MASM. Annoyingly, this has to be done in the main CMake file rather than in
-    # the toolchain file
-    add_compile_options(-DDBG=1)
+    # Enable ASM_MASM. Annoyingly, this has to be done in the main CMake file rather than in the
+    # toolchain file
     enable_language(ASM_MASM)
     add_compile_options(/MP)
+    add_compile_options(/Zp8)
     # Remove /RTC1, incompatible of /Ox
     string( REPLACE "/RTC1" "" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
     string( REPLACE "/RTC1" "" CMAKE_C_FLAGS_DEBUG ${CMAKE_C_FLAGS_DEBUG})
@@ -43,15 +43,85 @@ if(WIN32 AND SYMCRYPT_TARGET_ENV MATCHES "WindowsUserMode")
     string( REPLACE "/Od" "" CMAKE_C_FLAGS_DEBUG ${CMAKE_C_FLAGS_DEBUG})
     string( REPLACE "/Od" "" CMAKE_CXX_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE})
     string( REPLACE "/Od" "" CMAKE_C_FLAGS_RELEASE ${CMAKE_C_FLAGS_RELEASE})
-    
-    IF(CMAKE_BUILD_TYPE MATCHES Release)
-        message("Release mode")
+
+    if(CMAKE_BUILD_TYPE MATCHES Release)
         add_compile_options(/Oxs)
-    ENDIF(CMAKE_BUILD_TYPE MATCHES Release)
+        add_compile_options(/GL)
+        add_compile_options(/GF)
+        add_compile_options(/Gy)
+        add_compile_options(/Gw)
+    endif()
 elseif(NOT WIN32)
+    enable_language(ASM)
     add_compile_options(-Wno-deprecated-declarations -Wno-deprecated)
     add_compile_options(-g)
     add_compile_options(-Wno-multichar)
+    add_compile_options(-fPIC)
+    add_compile_options(-fno-stack-protector)
+    add_compile_options(-fno-plt)
+    add_compile_options(-fno-builtin-bcmp)
+
+    if (CMAKE_C_COMPILER_ID MATCHES "Clang")
+        add_compile_options(-mspeculative-load-hardening)
+    endif()
+
+    # In Sanitize version, enable sanitizers
+    if (CMAKE_BUILD_TYPE MATCHES Sanitize)
+        add_compile_options(-fsanitize=address)
+        add_compile_options(-fsanitize=leak)
+
+        # add_compile_options(-fsanitize=undefined)
+        # Not using undefined as we do not want to include alignment sanitizer
+        add_compile_options(-fsanitize=bool)
+        add_compile_options(-fsanitize=builtin)
+        add_compile_options(-fsanitize=bounds)
+        add_compile_options(-fsanitize=enum)
+        add_compile_options(-fsanitize=float-cast-overflow)
+        add_compile_options(-fsanitize=float-divide-by-zero)
+        add_compile_options(-fsanitize=integer-divide-by-zero)
+        add_compile_options(-fsanitize=nonnull-attribute)
+        add_compile_options(-fsanitize=pointer-overflow)
+        add_compile_options(-fsanitize=return)
+        add_compile_options(-fsanitize=returns-nonnull-attribute)
+        add_compile_options(-fsanitize=shift)
+        add_compile_options(-fsanitize=signed-integer-overflow)
+        add_compile_options(-fsanitize=unreachable)
+        add_compile_options(-fsanitize=vla-bound)
+        add_compile_options(-fsanitize=vptr)
+        add_compile_options(-fno-sanitize-recover=all)
+        add_link_options(-fsanitize=address)
+        add_link_options(-fsanitize=leak)
+        add_link_options(-fsanitize=bool)
+        add_link_options(-fsanitize=builtin)
+        add_link_options(-fsanitize=bounds)
+        add_link_options(-fsanitize=enum)
+        add_link_options(-fsanitize=float-cast-overflow)
+        add_link_options(-fsanitize=float-divide-by-zero)
+        add_link_options(-fsanitize=integer-divide-by-zero)
+        add_link_options(-fsanitize=nonnull-attribute)
+        add_link_options(-fsanitize=pointer-overflow)
+        add_link_options(-fsanitize=return)
+        add_link_options(-fsanitize=returns-nonnull-attribute)
+        add_link_options(-fsanitize=shift)
+        add_link_options(-fsanitize=signed-integer-overflow)
+        add_link_options(-fsanitize=unreachable)
+        add_link_options(-fsanitize=vla-bound)
+        add_link_options(-fsanitize=vptr)
+        add_link_options(-fno-sanitize-recover=all)
+    endif()
+
+    # GCC and clang unroll more aggressively than they should for best performance
+    # When we want to unroll loops, we unroll in the source code, so tell the compiler not to unroll
+    # (clang seems to respect this option globally, but I could only make GCC behave in AES-GCM by
+    # using GCC-specific pragmas for the loops of interest)
+    add_compile_options(-fno-unroll-loops)
+endif()
+
+if(CMAKE_BUILD_TYPE MATCHES Release)
+    message("Release mode")
+else()
+    message("Debug mode")
+    add_compile_options(-DDBG=1)
 endif()
 
 include_directories(inc)
@@ -59,4 +129,11 @@ include_directories(${CMAKE_BINARY_DIR}/inc)
 include(build/buildInfo.cmake)
 
 add_subdirectory(lib)
+
+if(NOT WIN32 AND NOT CMAKE_BUILD_TYPE MATCHES Sanitize)
+    # Module integrity check is seen as OOB access by sanitizers, and sanitizer instrumentation
+    # breaks integrity check assumptions. Only enable module when not running with sanitizers
+    add_subdirectory(module)
+endif()
+
 add_subdirectory(unittest)

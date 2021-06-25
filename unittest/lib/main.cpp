@@ -7,7 +7,6 @@
 
 #include "precomp.h"
 
-#define EQU =
 #include "C_asm_shared.inc"
 
 VOID
@@ -33,7 +32,6 @@ developertest()
     // tests.
     //
 }
-
 
 //
 // Special extern declarations to allow us to disable AES-NI on the RSA32 library
@@ -184,7 +182,7 @@ const char * AlgDh::name = "Dh";
 
 const char * AlgDsa::name = "Dsa";
 
-const char * AlgEcurveAllocate::name = "EcurveAllocate";
+const char * AlgEcurveAllocate::name = "EcurveAllocateAndFree";
 
 const char * AlgEcpointSetZero::name = "EcpointSetZero";
 
@@ -900,7 +898,7 @@ AlgorithmImplementationVector g_algorithmImplementation;
 
 _Analysis_noreturn_
 VOID
-fatal( _In_ PSTR file, ULONG line, _In_ PSTR format, ... )
+fatal( _In_ PCSTR file, ULONG line, _In_ PCSTR format, ... )
 {
     va_list vl;
     printOutput( 0 );
@@ -983,16 +981,20 @@ void printPlatformInformation( _In_z_ char * text )
         "generic"
 #endif
 
-#if defined(DBG)
+#if SYMCRYPT_DEBUG
         "Chk"
 #else
         "Fre"
 #endif
 
-#if SYMCRYPT_APPLE_CC
+#if defined(__APPLE__)
         ", iOS\n", text);
-#else
+#elif defined(__linux__)
+        ", Linux\n", text);
+#elif defined(_WIN32)
         ", Windows %04x\n", text, g_osVersion );
+#else
+        ", Unknown platform\n", text);
 #endif
 
 #if SYMCRYPT_CPU_X86 | SYMCRYPT_CPU_AMD64
@@ -1194,7 +1196,7 @@ testpbkdf2()
 //
 // Reach into the internals of Symcrypt to retrieve the build string
 extern "C" {
-extern const CHAR * SymCryptBuildString;
+extern const CHAR * const SymCryptBuildString;
 };
 
 VOID
@@ -1559,7 +1561,9 @@ runFunctionalTests()
 
     testEcc();
 
+#if SYMCRYPT_MS_VC
     testIEEE802_11SaeCustom();
+#endif
 
     iprint( "Functional testing done.\n" );
 
@@ -1639,10 +1643,10 @@ runPerfTests()
             {
                 print( "%s%s,%lu,%s,%s,%lu,%lu\n",
                     g_measure_sizes_stringPrefix.c_str(),
-                    (*i)->m_algorithmName + (*i)->m_modeName,
+                    ((*i)->m_algorithmName + (*i)->m_modeName).c_str(),
                     (ULONG) (j->keySize & 0xffff) * 8,
                     j->strPostfix,
-                    (*i)->m_implementationName,
+                    ((*i)->m_implementationName).c_str(),
                     (ULONG) j->dataSize,
                     (ULONG) floor(j->cFixed) );
             }

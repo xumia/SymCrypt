@@ -114,14 +114,17 @@ SymCryptFdefModulusCopy(
 {
     SYMCRYPT_ASSERT( pmSrc->nDigits == pmDst->nDigits );
 
-    memcpy( pmDst, pmSrc, pmDst->cbSize );
+    if( pmSrc != pmDst )
+    {
+        memcpy( pmDst, pmSrc, pmDst->cbSize );
 
-    SymCryptFdefDivisorCopyFixup( &pmSrc->Divisor, &pmDst->Divisor );
+        SymCryptFdefDivisorCopyFixup( &pmSrc->Divisor, &pmDst->Divisor );
 
-    // Copy the type-specific fields
-    SYMCRYPT_MOD_CALL( pmSrc ) modulusCopyFixup( pmSrc, pmDst );
+        // Copy the type-specific fields
+        SYMCRYPT_MOD_CALL( pmSrc ) modulusCopyFixup( pmSrc, pmDst );
 
-    SYMCRYPT_SET_MAGIC( pmDst );
+        SYMCRYPT_SET_MAGIC( pmDst );
+    }
 }
 
 VOID
@@ -226,7 +229,10 @@ SymCryptFdefModElementCopy(
     _In_    PCSYMCRYPT_MODELEMENT   peSrc,
     _Out_   PSYMCRYPT_MODELEMENT    peDst )
 {
-    memcpy( peDst, peSrc, pmMod->cbModElement );
+    if( peSrc != peDst )
+    {
+        memcpy( peDst, peSrc, pmMod->cbModElement );
+    }
 }
 
 VOID
@@ -271,7 +277,7 @@ SymCryptFdefDecideModulusType( PCSYMCRYPT_INT piSrc, UINT32 nDigits, UINT32 aver
 {
     UINT32 res = 0;
     BOOLEAN disableMontgomery = 0;
-    PSYMCRYPT_MODULUS_TYPE_SELECTION_ENTRY pEntry;
+    PCSYMCRYPT_MODULUS_TYPE_SELECTION_ENTRY pEntry;
 
     UINT32 nBitsizeOfValue = SymCryptIntBitsizeOfValue( piSrc );
     UINT32 modulusFeatures = 0;
@@ -761,7 +767,7 @@ SymCryptFdefModDivPow2(
     // mod must be odd
     SYMCRYPT_ASSERT( (pMod[0] & 1) != 0 );
 
-    if( exp > 1 )
+    if( exp > 1 && peSrc != peDst)
     {
         // If more than one bit, we copy to the destination and work in a loop in-place.
         memcpy( &peDst->d.uint32[0], &peSrc->d.uint32[0], nDigits * SYMCRYPT_FDEF_DIGIT_SIZE );
@@ -1355,64 +1361,6 @@ SymCryptFdefModInvMontgomery(
 //=====================================
 // 256-bit Montgomery modulus code
 //
-
-VOID
-SYMCRYPT_CALL
-SymCryptFdefModAdd256Test(
-    _In_                            PCSYMCRYPT_MODULUS      pmMod,
-    _In_                            PCSYMCRYPT_MODELEMENT   peSrc1,
-    _In_                            PCSYMCRYPT_MODELEMENT   peSrc2,
-    _Out_                           PSYMCRYPT_MODELEMENT    peDst,
-    _Out_writes_bytes_( cbScratch ) PBYTE                   pbScratch,
-                                    SIZE_T                  cbScratch )
-{
-    SYMCRYPT_ASYM_ALIGN BYTE    buf1[128];
-    SYMCRYPT_ASYM_ALIGN BYTE    buf2[128];
-    PSYMCRYPT_MODELEMENT peTmp1 = SymCryptModElementCreate( SYMCRYPT_ASYM_ALIGN_UP( buf1 ), sizeof( buf1 ) - SYMCRYPT_ASYM_ALIGN_VALUE, pmMod );
-    PSYMCRYPT_MODELEMENT peTmp2 = SymCryptModElementCreate( SYMCRYPT_ASYM_ALIGN_UP( buf2 ), sizeof( buf2 ) - SYMCRYPT_ASYM_ALIGN_VALUE, pmMod );
-
-    (VOID) peTmp1;
-    (VOID) peTmp2;
-
-    SymCryptFdefModAdd256Asm( pmMod, peSrc1, peSrc2, peTmp1, pbScratch, cbScratch );
-    SymCryptFdefModAddGeneric( pmMod, peSrc1, peSrc2, peTmp2, pbScratch, cbScratch );
-
-    if( memcmp( peTmp1, peTmp2, 64 ) != 0 )
-    {
-        SymCryptFatal( 42 );
-    }
-
-    SymCryptFdefModAdd256Asm( pmMod, peSrc1, peSrc2, peDst, pbScratch, cbScratch );
-}
-
-VOID
-SYMCRYPT_CALL
-SymCryptFdefModMulMontgomery256Test(
-    _In_                            PCSYMCRYPT_MODULUS      pmMod,
-    _In_                            PCSYMCRYPT_MODELEMENT   peSrc1,
-    _In_                            PCSYMCRYPT_MODELEMENT   peSrc2,
-    _Out_                           PSYMCRYPT_MODELEMENT    peDst,
-    _Out_writes_bytes_( cbScratch ) PBYTE                   pbScratch,
-                                    SIZE_T                  cbScratch )
-{
-    SYMCRYPT_ASYM_ALIGN BYTE    buf1[128];
-    SYMCRYPT_ASYM_ALIGN BYTE    buf2[128];
-    PSYMCRYPT_MODELEMENT peTmp1 = SymCryptModElementCreate( SYMCRYPT_ASYM_ALIGN_UP( buf1 ), sizeof( buf1 ) - SYMCRYPT_ASYM_ALIGN_VALUE, pmMod );
-    PSYMCRYPT_MODELEMENT peTmp2 = SymCryptModElementCreate( SYMCRYPT_ASYM_ALIGN_UP( buf2 ), sizeof( buf2 ) - SYMCRYPT_ASYM_ALIGN_VALUE, pmMod );
-
-    (VOID) peTmp1;
-    (VOID) peTmp2;
-
-    SymCryptFdefModMulMontgomery256Asm( pmMod, peSrc1, peSrc2, peTmp1, pbScratch, cbScratch );
-    //SymCryptFdefModMulMontgomery( pmMod, peSrc1, peSrc2, peTmp2, pbScratch, cbScratch ); *** This doesn't produce the same result as it reduces a whole digit, not 256 bits
-
-    if( memcmp( peTmp1, peTmp2, 64 ) != 0 )
-    {
-    //    SymCryptFatal( 42 );
-    }
-
-    SymCryptFdefModMulMontgomery256Asm( pmMod, peSrc1, peSrc2, peDst, pbScratch, cbScratch );
-}
 
 VOID
 SYMCRYPT_CALL

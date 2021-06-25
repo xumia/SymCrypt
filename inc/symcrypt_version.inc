@@ -31,14 +31,16 @@
 
 
 SYMCRYPT_CODE_VERSION_API       EQU     100
-SYMCRYPT_CODE_VERSION_MINOR     EQU     13
+SYMCRYPT_CODE_VERSION_MINOR     EQU     17
+SYMCRYPT_CODE_VERSION_PATCH     EQU     0
 
 
         if      0               ; Start an area that the assembler ignores
 ;*/                             // End of C comment, the C compiler will read the lines below
 
 #define SYMCRYPT_CODE_VERSION_API       100
-#define SYMCRYPT_CODE_VERSION_MINOR     13
+#define SYMCRYPT_CODE_VERSION_MINOR     17
+#define SYMCRYPT_CODE_VERSION_PATCH     0
 
 ;/*                             ; Switch back into a C comment so that we can close the IF
         endif

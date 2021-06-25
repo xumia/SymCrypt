@@ -465,7 +465,7 @@ SymCryptUint64Bytesize( UINT64 value );
 //
 // SYMCRYPT_ENVIRONMENT_WINDOWS_BOOTLIBRARY                 // only for the current OS release
 //
-// SYMCRYPT_ENVIRONMENT_WINDWOS_KERNELMODE_LEGACY           // Use for any version of Windows.
+// SYMCRYPT_ENVIRONMENT_WINDOWS_KERNELMODE_LEGACY           // Use for any version of Windows.
 // SYMCRYPT_ENVIRONMENT_WINDOWS_KERNELMODE_WIN7_N_LATER     // Only for Win7 and later
 // SYMCRYPT_ENVIRONMENT_WINDOWS_KERNELMODE_WIN8_1_N_LATER   // Only for WinBlue and later
 // SYMCRYPT_ENVIRONMENT_WINDOWS_KERNELMODE_LATEST           // use for latest OS
@@ -477,6 +477,8 @@ SymCryptUint64Bytesize( UINT64 value );
 //
 // SYMCRYPT_ENVIRONMENT_WINDOWS_KERNELDEBUGGER
 //
+// SYMCRYPT_ENVIRONMENT_LINUX_USERMODE                      // use for Linux
+//
 // SYMCRYPT_ENVIRONMENT_GENERIC                             // use for all other situations
 //
 
@@ -484,8 +486,9 @@ VOID
 SYMCRYPT_CALL
 SymCryptInit();
 //
-// Initialize the library.
+// Initialize the static library.
 // This function MUST be called before any other function in the library.
+// It is not necessary to call this function when using the shared object library.
 //
 // This function does not perform the self tests in the library.
 // Doing so would force the linking of all the algorithm in the library,
@@ -501,7 +504,20 @@ SymCryptInit();
 // to invoke one of the environment macros documented above.
 //
 
+VOID
+SYMCRYPT_CALL
+SymCryptModuleInit(
+    _In_ UINT32 api,
+    _In_ UINT32 minor,
+    _In_ UINT32 patch);
 
+#define SYMCRYPT_MODULE_INIT() SymCryptModuleInit(SYMCRYPT_CODE_VERSION_API, SYMCRYPT_CODE_VERSION_MINOR, SYMCRYPT_CODE_VERSION_PATCH);
+//
+// Initialize the SymCrypt shared object module/dynamic-link library. This function verifies
+// that the module version supports the version requested by the application. If the version
+// is unsupported, a fatal error will occur. The macro SYMCRYPT_MODULE_INIT can be used
+// to call SymCryptModuleInit with the correct arguments.
+//
 
 //==========================================================================
 //   DATA MANIPULATION
@@ -992,7 +1008,7 @@ extern const PCSYMCRYPT_HASH SymCryptMd5Algorithm;
 ///////////////////////////////////////////////////////////////////////////////
 //      SHA-1
 //
-// The SHA-1 hash algorithm per FIPS 182-2.
+// The SHA-1 hash algorithm per FIPS 180-4.
 //
 // This implementation is limited to data strings that are in whole bytes.
 // Odd bit length are not supported.
@@ -1066,7 +1082,7 @@ extern const PCSYMCRYPT_HASH SymCryptSha1Algorithm;
 //   SHA-256
 //
 //
-// Tha SHA-256 hash algorithm per FIPS 182-2.
+// Tha SHA-256 hash algorithm per FIPS 180-4.
 // This implementation is limited to data strings that are in whole bytes.
 // Odd bit length are not supported.
 //
@@ -1132,7 +1148,7 @@ extern const PCSYMCRYPT_HASH SymCryptSha256Algorithm;
 //   SHA-384
 //
 //
-// Tha SHA-384 hash algorithm per FIPS 182-2.
+// Tha SHA-384 hash algorithm per FIPS 180-4.
 // This implementation is limited to data strings that are in whole bytes.
 // Odd bit length are not supported.
 //
@@ -1198,7 +1214,7 @@ extern const PCSYMCRYPT_HASH SymCryptSha384Algorithm;
 //   SHA-512
 //
 //
-// Tha SHA-512 hash algorithm per FIPS 182-2.
+// Tha SHA-512 hash algorithm per FIPS 180-4.
 // This implementation is limited to data strings that are in whole bytes.
 // Odd bit length are not supported.
 //
@@ -1641,9 +1657,9 @@ _Success_(return == SYMCRYPT_NO_ERROR)
 SYMCRYPT_ERROR
 SYMCRYPT_CALL
 SymCryptHmacMd5ExpandKey(
-    _Out_               PSYMCRYPT_HMAC_MD5_EXPANDED_KEY pExpandedKey,
-    _In_reads_(cbKey)   PCBYTE                          pbKey,
-                        SIZE_T                          cbKey );
+    _Out_                   PSYMCRYPT_HMAC_MD5_EXPANDED_KEY pExpandedKey,
+    _In_reads_opt_(cbKey)   PCBYTE                          pbKey,
+                            SIZE_T                          cbKey );
 //
 // Supports all key lengths; never returns an error.
 //
@@ -1707,9 +1723,9 @@ _Success_(return == SYMCRYPT_NO_ERROR)
 SYMCRYPT_ERROR
 SYMCRYPT_CALL
 SymCryptHmacSha1ExpandKey(
-    _Out_               PSYMCRYPT_HMAC_SHA1_EXPANDED_KEY    pExpandedKey,
-    _In_reads_(cbKey)   PCBYTE                              pbKey,
-                        SIZE_T                              cbKey );
+    _Out_                   PSYMCRYPT_HMAC_SHA1_EXPANDED_KEY    pExpandedKey,
+    _In_reads_opt_(cbKey)   PCBYTE                              pbKey,
+                            SIZE_T                              cbKey );
 //
 // Supports all key lengths; never returns an error.
 //
@@ -1773,9 +1789,9 @@ _Success_(return == SYMCRYPT_NO_ERROR)
 SYMCRYPT_ERROR
 SYMCRYPT_CALL
 SymCryptHmacSha256ExpandKey(
-    _Out_               PSYMCRYPT_HMAC_SHA256_EXPANDED_KEY  pExpandedKey,
-    _In_reads_(cbKey)   PCBYTE                              pbKey,
-                        SIZE_T                              cbKey );
+    _Out_                   PSYMCRYPT_HMAC_SHA256_EXPANDED_KEY  pExpandedKey,
+    _In_reads_opt_(cbKey)   PCBYTE                              pbKey,
+                            SIZE_T                              cbKey );
 //
 // Supports all key lengths; never returns an error.
 //
@@ -1838,9 +1854,9 @@ _Success_(return == SYMCRYPT_NO_ERROR)
 SYMCRYPT_ERROR
 SYMCRYPT_CALL
 SymCryptHmacSha384ExpandKey(
-    _Out_               PSYMCRYPT_HMAC_SHA384_EXPANDED_KEY  pExpandedKey,
-    _In_reads_(cbKey)   PCBYTE                              pbKey,
-                        SIZE_T                              cbKey );
+    _Out_                   PSYMCRYPT_HMAC_SHA384_EXPANDED_KEY  pExpandedKey,
+    _In_reads_opt_(cbKey)   PCBYTE                              pbKey,
+                            SIZE_T                              cbKey );
 //
 // Supports all key lengths; never returns an error.
 //
@@ -1903,9 +1919,9 @@ _Success_(return == SYMCRYPT_NO_ERROR)
 SYMCRYPT_ERROR
 SYMCRYPT_CALL
 SymCryptHmacSha512ExpandKey(
-    _Out_               PSYMCRYPT_HMAC_SHA512_EXPANDED_KEY  pExpandedKey,
-    _In_reads_(cbKey)   PCBYTE                              pbKey,
-                        SIZE_T                              cbKey );
+    _Out_                   PSYMCRYPT_HMAC_SHA512_EXPANDED_KEY  pExpandedKey,
+    _In_reads_opt_(cbKey)   PCBYTE                              pbKey,
+                            SIZE_T                              cbKey );
 //
 // Supports all key lengths; never returns an error.
 //
@@ -3628,7 +3644,7 @@ SYMCRYPT_ERROR
 SYMCRYPT_CALL
 SymCryptTlsPrf1_1Derive(
     _In_                    PCSYMCRYPT_TLSPRF1_1_EXPANDED_KEY   pExpandedKey,
-    _In_reads_(cbLabel)     PCBYTE                              pbLabel,
+    _In_reads_opt_(cbLabel) PCBYTE                              pbLabel,
     _In_                    SIZE_T                              cbLabel,        // Up to SYMCRYPT_TLS_MAX_LABEL_SIZE
     _In_reads_(cbSeed)      PCBYTE                              pbSeed,
     _In_                    SIZE_T                              cbSeed,         // Up to SYMCRYPT_TLS_MAX_SEED_SIZE
@@ -3641,7 +3657,7 @@ SYMCRYPT_CALL
 SymCryptTlsPrf1_1(
     _In_reads_(cbKey)       PCBYTE   pbKey,
     _In_                    SIZE_T   cbKey,
-    _In_reads_(cbLabel)     PCBYTE   pbLabel,
+    _In_reads_opt_(cbLabel) PCBYTE   pbLabel,
     _In_                    SIZE_T   cbLabel,
     _In_reads_(cbSeed)      PCBYTE   pbSeed,
     _In_                    SIZE_T   cbSeed,
@@ -3669,7 +3685,7 @@ SYMCRYPT_ERROR
 SYMCRYPT_CALL
 SymCryptTlsPrf1_2Derive(
     _In_                    PCSYMCRYPT_TLSPRF1_2_EXPANDED_KEY   pExpandedKey,
-    _In_reads_(cbLabel)     PCBYTE                              pbLabel,
+    _In_reads_opt_(cbLabel) PCBYTE                              pbLabel,
     _In_                    SIZE_T                              cbLabel,    // Up to SYMCRYPT_TLS_MAX_LABEL_SIZE
     _In_reads_(cbSeed)      PCBYTE                              pbSeed,
     _In_                    SIZE_T                              cbSeed,     // Up to SYMCRYPT_TLS_MAX_SEED_SIZE
@@ -3683,7 +3699,7 @@ SymCryptTlsPrf1_2(
     _In_                    PCSYMCRYPT_MAC  macAlgorithm,
     _In_reads_(cbKey)       PCBYTE          pbKey,
     _In_                    SIZE_T          cbKey,
-    _In_reads_(cbLabel)     PCBYTE          pbLabel,
+    _In_reads_opt_(cbLabel) PCBYTE          pbLabel,
     _In_                    SIZE_T          cbLabel,
     _In_reads_(cbSeed)      PCBYTE          pbSeed,
     _In_                    SIZE_T          cbSeed,
@@ -3934,6 +3950,33 @@ SYMCRYPT_CALL
 SymCryptRngAesFips140_2Uninstantiate(
     _Inout_                 PSYMCRYPT_RNG_AES_FIPS140_2_STATE pRngState );
 
+////////////////////////////////////////////////////////////////////////////////////////////
+//
+// Internal RNG functions
+//
+// To satisfy FIPS 140-3 and SP 800-90B, certain modules of SymCrypt may set up internal
+// RNG state(s) to keep random bit generation behind the module security boundary.
+// These functions allow the caller to get random bits and provide entropy, respectively,
+// to SymCrypt's internal RNG state(s).
+// Implementation is module dependent, and these functions may not be defined
+// for certain modules. Check before using.
+//
+
+VOID
+SYMCRYPT_CALL
+SymCryptRandom(
+    _Out_writes_(cbRandom)  PBYTE   pbRandom,
+                            SIZE_T  cbRandom );
+// Fills pbRandom with cbRandom random bytes
+
+VOID
+SYMCRYPT_CALL
+SymCryptProvideEntropy(
+    _In_reads_(cbEntropy)   PCBYTE  pbEntropy,
+                            SIZE_T  cbEntropy );
+// Mixes pbEntropy into the internal RNG state. There may be module-specific limits on
+// cbEntropy - check module before use
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -4042,7 +4085,7 @@ SymCryptRdseedGet(
     _Out_writes_( cbResult )                    PBYTE   pbResult,
                                                 SIZE_T  cbResult );
 //
-// Queries cbResult bytes from teh Rdseed instructoin and puts them in the buffer.
+// Queries cbResult bytes from the Rdseed instruction and puts them in the buffer.
 // The number of bytes (cbResult) must be a multiple of 16.
 // Fatal error if the Rdseed instruction is not present, or the instruction fails consistently.
 // Note: SymCrypt only checks whether Rdseed self-reports as failing. SymCrypt does NOT attempt
@@ -4258,6 +4301,7 @@ SymCryptCallbackFree( VOID * pMem );
 _Success_(return == SYMCRYPT_NO_ERROR)
 SYMCRYPT_ERROR
 SYMCRYPT_CALL
+SYMCRYPT_WEAK_SYMBOL
 SymCryptCallbackRandom(
     _Out_writes_bytes_( cbBuffer )   PBYTE   pbBuffer,
                                     SIZE_T  cbBuffer );
@@ -4268,35 +4312,20 @@ SymCryptCallbackRandom(
 //==============================================================================================
 // Object types for high-level API
 //
-// RSAKEY       A key that stores the information for the RSA algorithms (encryption and signing).
-//              It always contains the RSA parameters / public key, and may or may not contain
-//              the associated private key.
-// DLGROUP      A discrete log group to be used for the DSA and DH algorithmms. It contains the
-//              group parameters (P,[Q],G) (The prime Q is optional).
-// DLKEY        A "discrete log" key that stores the information for the DSA and DH algorithms. It
-//              always contains a public key, and may or may not contain the associated private key.
-// ECURVE       An elliptic curve over a prime field. Contains field prime, curve parameters,
-//              and distinguished point (generator).
-// ECKEY        An elliptic curve key for the ECDH and ECDSA algorithms. It always contains a
-//              public key, and may or may not contain the associated private key.
+// SYMCRYPT_RSAKEY       A key that stores the information for the RSA algorithms (encryption and signing).
+//                       It always contains the RSA parameters / public key, and may or may not contain
+//                       the associated private key.
+// SYMCRYPT_DLGROUP      A discrete log group to be used for the DSA and DH algorithmms. It contains the
+//                       group parameters (P,[Q],G) (The prime Q is optional).
+// SYMCRYPT_DLKEY        A "discrete log" key that stores the information for the DSA and DH algorithms. It
+//                       always contains a public key, and may or may not contain the associated private key.
+// SYMCRYPT_ECURVE       An elliptic curve over a prime field. Contains field prime, curve parameters,
+//                       and distinguished point (generator).
+// SYMCRYPT_ECKEY        An elliptic curve key for the ECDH and ECDSA algorithms. It always contains a
+//                       public key, and may or may not contain the associated private key.
 //
-// These are abstract type definitions, the actual type is not a compile-time property.
+// See symcrypt_internal.h for structure definitions.
 //
-
-typedef SYMCRYPT_ALIGN struct _SYMCRYPT_RSAKEY   SYMCRYPT_RSAKEY, *PSYMCRYPT_RSAKEY;
-typedef const SYMCRYPT_RSAKEY *PCSYMCRYPT_RSAKEY;
-
-typedef SYMCRYPT_ALIGN struct _SYMCRYPT_DLGROUP   SYMCRYPT_DLGROUP, *PSYMCRYPT_DLGROUP;
-typedef const SYMCRYPT_DLGROUP *PCSYMCRYPT_DLGROUP;
-
-typedef SYMCRYPT_ALIGN struct _SYMCRYPT_DLKEY   SYMCRYPT_DLKEY, *PSYMCRYPT_DLKEY;
-typedef const SYMCRYPT_DLKEY *PCSYMCRYPT_DLKEY;
-
-typedef SYMCRYPT_ALIGN struct _SYMCRYPT_ECURVE   SYMCRYPT_ECURVE, *PSYMCRYPT_ECURVE;
-typedef const SYMCRYPT_ECURVE * PCSYMCRYPT_ECURVE;
-
-typedef SYMCRYPT_ALIGN struct _SYMCRYPT_ECKEY   SYMCRYPT_ECKEY, *PSYMCRYPT_ECKEY;
-typedef const SYMCRYPT_ECKEY *PCSYMCRYPT_ECKEY;
 
 //==============================================================================================
 // Supported formats and parameters
@@ -4987,7 +5016,7 @@ SymCryptRsakeyGenerate(
 // PubExp is the array of nPubExp public exponent values, specifying
 // the public exponents for the key.
 // nPubExp must match the # public exponents in the parameters.
-// If pu32PubExp == NULL, nPubExp == 0, and the key requires only one
+// If pu64PubExp == NULL, nPubExp == 0, and the key requires only one
 // public exponent, then the default exponent 2^16 + 1 is used.
 // Flags: none currently defined
 //
@@ -5009,7 +5038,7 @@ SymCryptRsakeySetValue(
 //
 // Import key material to an RSAKEY object. The arguments are the following:
 //  - pbModulus is a pointer to a byte buffer of cbModulus bytes. It cannot be NULL.
-//  - pu32PubExp is a pointer to an array of nPubExp UINT64 exponent values.
+//  - pu64PubExp is a pointer to an array of nPubExp UINT64 exponent values.
 //    nPubExp must match the RSA parameters used to create the key object.
 //  - ppPrimes is an array of nPrimes pointers that point to byte buffers storing
 //    the primes. pcbPrimes is an array of nPrimes sizes such that
@@ -5023,6 +5052,7 @@ SymCryptRsakeySetValue(
 //    importing a public key.
 //  - Currently, the only acceptable value of nPubExps is 1.
 //  - Currently, the only acceptable value of nPrimes is 2 or 0.
+//  - Elements of ppPrimes must represent prime numbers.
 // We allow separate sizes for each prime. This seems redundant because all primes
 // are approximately the same size. However, some storage/encoding formats, such as ASN.1,
 // strip leading zeroes, or add an additional leading zero depending on the situation.
@@ -5247,6 +5277,7 @@ SymCryptDlgroupSetValue(
 // Remarks:
 //  - The buffers pbPrimeP, pbPrimeQ, pbGenG must all have the same number
 //    format defined by numFormat.
+//  - Primes P and (when provided) Q must represent prime numbers.
 //
 
 _Success_(return == SYMCRYPT_NO_ERROR)
@@ -5474,7 +5505,10 @@ SymCryptEcurveIsSame(
     _In_    PCSYMCRYPT_ECURVE  pCurve1,
     _In_    PCSYMCRYPT_ECURVE  pCurve2);
 //
-// Returns true if pCurve1 and pCurve2 have same set of P, A, B,  false otherwise.
+// Returns true if pCurve1 and pCurve2 have same type, P, A, and B - false otherwise.
+//
+// Note: This does not check that the curves have the same G set, callers may additionally
+// consider calling SymCryptEcpointIsEqual to compare the curves' distinguished points.
 //
 
 // Internally supported curves
@@ -5609,7 +5643,7 @@ _Success_(return == SYMCRYPT_NO_ERROR)
 SYMCRYPT_ERROR
 SYMCRYPT_CALL
 SymCryptEckeyGetValue(
-    _In_    PSYMCRYPT_ECKEY         pEckey,
+    _In_    PCSYMCRYPT_ECKEY        pEckey,
     _Out_writes_bytes_( cbPrivateKey )
             PBYTE                   pbPrivateKey,
             SIZE_T                  cbPrivateKey,
@@ -5998,6 +6032,14 @@ SymCryptRsaPssVerify(
 //      None
 //
 
+VOID
+SYMCRYPT_CALL
+SymCryptRsaSelftest( );
+//
+// FIPS self-test for RSA sign/verify. If the self-test fails, SymCryptFatal will be called to
+// fastfail.
+//
+
 //
 // DSA
 //
@@ -6036,13 +6078,21 @@ SymCryptDsaVerify(
                                         SYMCRYPT_NUMBER_FORMAT  format,
                                         UINT32                  flags );
 //
-/// Verifies a DSA signature using the public part of Key.
+// Verifies a DSA signature using the public part of Key.
 //
 // It returns SYMCRYPT_NO_ERROR if the verification suceeded or SYMCRYPT_SIGNATURE_VERIFICATION_FAILURE
 // if it failed.
 //
 // Allowed flags:
 //      None
+//
+
+VOID
+SYMCRYPT_CALL
+SymCryptDsaSelftest( );
+//
+// FIPS self-test for DSA sign/verify. If the self-test fails, SymCryptFatal will be called to
+// fastfail.
 //
 
 //
@@ -6066,6 +6116,15 @@ SymCryptDhSecretAgreement(
 //
 // Allowed flags:
 //      - None
+//
+
+VOID
+SYMCRYPT_CALL
+SymCryptDhSecretAgreementSelftest();
+//
+// FIPS self-test for DH secret agreement. If the self-test fails, SymCryptFatal will be called to
+// fastfail. Called automatically by SymCryptDhSecretAgreement when SYMCRYPT_DO_FIPS_SELFTESTS is
+// defined during compilation.
 //
 
 //
@@ -6145,6 +6204,14 @@ SymCryptEcDsaVerify(
 //      SYMCRYPT_FLAG_ECDSA_NO_TRUNCATION: If set then the hash value will
 //      not be truncated.
 
+VOID
+SYMCRYPT_CALL
+SymCryptEcDsaSelftest( );
+//
+// FIPS self-test for ECDSA sign/verify. If the self-test fails, SymCryptFatal will be called to
+// fastfail.
+//
+
 //
 // ECDH
 //
@@ -6165,6 +6232,16 @@ SymCryptEcDhSecretAgreement(
 //
 // Allowed flags:
 //      - None
+//
+
+VOID
+SYMCRYPT_CALL
+SymCryptEcDhSecretAgreementSelftest( );
+
+//
+// FIPS self-test for ECDH secret agreement. If the self-test fails, SymCryptFatal will be called
+// to fastfail. Called automatically by SymCryptEcDhSecretAgreement when SYMCRYPT_DO_FIPS_SELFTESTS
+// is defined during compilation.
 //
 
 //

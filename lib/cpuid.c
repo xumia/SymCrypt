@@ -94,7 +94,7 @@ SymCryptDetectCpuFeaturesByCpuid( UINT32 flags )
     int     maxInfoType;
     int     i;
     BOOLEAN allowYmm;
-    __int64 xGetBvResult;
+    INT64 xGetBvResult;
 
     //
     // Mark all features as present (the result bits indicate not-present, so set the features we know to 0).
@@ -127,7 +127,7 @@ SymCryptDetectCpuFeaturesByCpuid( UINT32 flags )
             InfoType = cpuidBitInfo[i].leaf;
             SymCryptCpuidExFunc( CPUInfo, InfoType, 0 );
         }
-        if( cpuidBitInfo[i].leaf > maxInfoType || (CPUInfo[ cpuidBitInfo[i].word ] & (1 << cpuidBitInfo[i].bitno) ) == 0 )
+        if( cpuidBitInfo[i].leaf > maxInfoType || (CPUInfo[ cpuidBitInfo[i].word ] & (1UL << cpuidBitInfo[i].bitno) ) == 0 )
         {
             result |= cpuidBitInfo[i].requiredBy;
         }
@@ -142,7 +142,7 @@ SymCryptDetectCpuFeaturesByCpuid( UINT32 flags )
         //
         // We use the following logic:
         // Check that the OSXSAVE bit is 1, which means we can use XGETBV
-        // Use XGETBV and check that XCR0[2:1] = '11b' signalign that both XMM and YMM are enabled by OS
+        // Use XGETBV and check that XCR0[2:1] = '11b' signaling that both XMM and YMM are enabled by OS
         // Note that we only disable the AVX2 usage; AESNI & XMM registers are used independent of OS support, because
         // all our (known) OSes have it.
         //

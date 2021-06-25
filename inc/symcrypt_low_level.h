@@ -259,29 +259,14 @@ a ModElement object.
 //==============================================================================================
 // Object types for low-level API
 //
-// INT          integer in range 0..N for some N
-// DIVISOR      an integer > 0 that can be used to divide with.
-// MODULUS      a value M > 1 to use in modulo-M computations
-// MODELEMENT   An element in a modulo-M ring.
-// ECPOINT      A point on an elliptic curve.
+// SYMCRYPT_INT          integer in range 0..N for some N
+// SYMCRYPT_DIVISOR      an integer > 0 that can be used to divide with.
+// SYMCRYPT_MODULUS      a value M > 1 to use in modulo-M computations
+// SYMCRYPT_MODELEMENT   An element in a modulo-M ring.
+// SYMCRYPT_ECPOINT      A point on an elliptic curve.
 //
-// These are abstract type definitions, the actual type is not a compile-time property.
+// See symcrypt_internal.h for definitions.
 //
-
-typedef SYMCRYPT_ASYM_ALIGN struct _SYMCRYPT_INT   SYMCRYPT_INT, *PSYMCRYPT_INT;
-typedef const SYMCRYPT_INT * PCSYMCRYPT_INT;
-
-typedef SYMCRYPT_ASYM_ALIGN struct _SYMCRYPT_DIVISOR   SYMCRYPT_DIVISOR, *PSYMCRYPT_DIVISOR;
-typedef const SYMCRYPT_DIVISOR * PCSYMCRYPT_DIVISOR;
-
-typedef SYMCRYPT_ASYM_ALIGN struct _SYMCRYPT_MODULUS   SYMCRYPT_MODULUS, *PSYMCRYPT_MODULUS;
-typedef const SYMCRYPT_MODULUS * PCSYMCRYPT_MODULUS;
-
-typedef SYMCRYPT_ASYM_ALIGN struct _SYMCRYPT_MODELEMENT   SYMCRYPT_MODELEMENT, *PSYMCRYPT_MODELEMENT;
-typedef const SYMCRYPT_MODELEMENT * PCSYMCRYPT_MODELEMENT;
-
-typedef SYMCRYPT_ASYM_ALIGN struct _SYMCRYPT_ECPOINT   SYMCRYPT_ECPOINT, *PSYMCRYPT_ECPOINT;
-typedef const SYMCRYPT_ECPOINT * PCSYMCRYPT_ECPOINT;
 
 //========================================================================
 //========================================================================
@@ -2627,6 +2612,8 @@ SymCryptEcpointScalarMul(
 //
 // Requirements:
 //  - The piScalar must have SymCryptEcurveDigitsofScalarMultiplier( pCurve ) digits.
+//  - For Non-Montgomery curves, the piScalar must be in the range [0, SubgroupOrder].
+//      - This is the caller's responsibility, it is not checked.
 //  - cbScratch >= SYMCRYPT_SCRATCH_BYTES_FOR_SCALAR_ECURVE_OPERATIONS( pCurve ).
 //
 
@@ -2688,10 +2675,13 @@ SymCryptEcDsaSignEx(
                                         SIZE_T                  cbSignature );
 //
 // This algorithm is the same as SymCryptEcDsaSign except that the caller can specify
-// a value of k in peK. It is used in verifying test vectors of ECDSA.
+// a value of k in piK. It is used in verifying test vectors of ECDSA.
 //
 // Requirements:
-//  - If piK is not NULL it must have SymCryptEcurveDigitsofScalarMultiplier( pCurve ) digits.
+//  - If piK is not NULL it must have SymCryptEcurveDigitsofScalarMultiplier( pCurve ) digits, and
+//    must be in range [1, SubgroupOrder-1].
+//  - If piK is not NULL and the generated signature would be 0, SYMCRYPT_INVALID_ARGUMENT is
+//    returned.
 //
 
 //===================================================================
