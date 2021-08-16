@@ -55,6 +55,11 @@ steps:
         dpkg-query -W
         pip list
       displayName: 'Install Python requirements'
+  - script: |
+      cmake  ..
+      cmake --build .
+    workingDirectory: '$(Build.SourcesDirectory)/bin'
+    displayName: make
   - task: CMake@1
     inputs:
       workingDirectory: '$(Build.SourcesDirectory)/bin'
