@@ -56,9 +56,11 @@ steps:
         pip list
       displayName: 'Install Python requirements'
   - script: |
+      mkdir $(Build.SourcesDirectory)/bin
+      cd $(Build.SourcesDirectory)/bin
       cmake  ..
       cmake --build .
-    workingDirectory: '$(Build.SourcesDirectory)/bin'
+    workingDirectory: '$(Build.SourcesDirectory)'
     displayName: make
   - task: CMake@1
     inputs:
