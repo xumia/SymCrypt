@@ -66,6 +66,7 @@ steps:
         -DCMAKE_BUILD_TYPE=${{parameters.buildType}}
       echo "cmake --build . -j --config ${{parameters.buildType}}"
       cmake --build . -j --config ${{parameters.buildType}}
+      ls -l
     workingDirectory: '$(Build.SourcesDirectory)'
     displayName: make
   - task: CMake@1
