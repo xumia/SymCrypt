@@ -41,7 +41,6 @@ parameters:
 
 steps:
   - checkout: self  # self represents the repo where the initial Pipelines YAML file was found
-    submodules: recursive
   # Initialize CMake
   # cd bin; cmake .. -DCMAKE_TOOLCHAIN_FILE=../cmake-toolchain/{env}-{arch}.cmake -DCMAKE_C_COMPILER={CC} -DCMAKE_BUILD_TYPE={buildType} {additionalCMakeArgs}'
   - task: ComponentGovernanceComponentDetection@0
