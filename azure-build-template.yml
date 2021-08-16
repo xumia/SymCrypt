@@ -49,6 +49,8 @@ steps:
         python -m pip install --upgrade pip setuptools wheel
         pip install -r $(Build.SourcesDirectory)/scripts/requirements.txt
         pip --version
+        which cmake
+        dpkg -S $(which cmake)
         uname -a
         dpkg-query -W
         pip list
