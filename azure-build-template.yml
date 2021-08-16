@@ -58,8 +58,10 @@ steps:
   - script: |
       mkdir $(Build.SourcesDirectory)/bin
       cd $(Build.SourcesDirectory)/bin
-      cmake  ..
-      cmake --build .
+      cmake  .. -DCMAKE_TOOLCHAIN_FILE=../cmake-toolchain/${{parameters.env}}-${{parameters.arch}}.cmake \
+        -DCMAKE_C_COMPILER=${{parameters.cc}} -DCMAKE_CXX_COMPILER=${{parameters.cxx}} \
+        -DCMAKE_BUILD_TYPE=${{parameters.buildType}}
+      cmake --build . -j --config ${{parameters.buildType}}
     workingDirectory: '$(Build.SourcesDirectory)'
     displayName: make
   - task: CMake@1
