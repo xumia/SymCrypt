@@ -48,6 +48,10 @@ steps:
     - script: |
         python -m pip install --upgrade pip setuptools wheel
         pip install -r $(Build.SourcesDirectory)/scripts/requirements.txt
+        pip --version
+        uname -a
+        dpkg-query -W
+        pip list
       displayName: 'Install Python requirements'
   - task: CMake@1
     inputs:
