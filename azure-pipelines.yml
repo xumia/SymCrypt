@@ -3,13 +3,11 @@
 # Pipelines, see https://docs.microsoft.com/en-us/azure/devops/pipelines/customize-pipeline
 
 # Execute the pipeline whenever a change is made to master
-trigger:
-- master
+trigger: none
 
 # Execute the pipeline on any PR into master. (Currently not supported on Azure Git Repos; must
 # be configured through the UI.)
-pr:
-- master
+pr: none
 
 # List of jobs to build. Each job follows the same general format.
 # 1. Windows AMD64 with CPU optimizations in Debug mode
@@ -23,71 +21,6 @@ pr:
 # 9. Linux AMD64 with CPU optimizations using clang in Sanitize mode
 # 10. Linux AMD64 with CPU optimizations using clang in Release mode
 jobs:
-- job: Windows_AMD64_Debug
-  pool:
-    vmImage: 'windows-2019' # Windows Server 2019 with Visual Studio 2019
-  steps:
-  - template: azure-build-template.yml
-    parameters:
-      env: WindowsUserMode
-      arch: AMD64
-      cc: cl
-      cxx: cl
-      buildType: Debug
-      additionalCMakeArgs: -DSYMCRYPT_INTERNAL_BUILD=1
-
-- job: Windows_AMD64_Release
-  pool:
-    vmImage: 'windows-2019'
-  steps:
-  - template: azure-build-template.yml
-    parameters:
-      env: WindowsUserMode
-      arch: AMD64
-      cc: cl
-      cxx: cl
-      buildType: Release
-      additionalCMakeArgs: -DSYMCRYPT_INTERNAL_BUILD=1
-
-- job: Windows_x86_Debug
-  pool:
-    vmImage: 'windows-2019'
-  steps:
-  - template: azure-build-template.yml
-    parameters:
-      env: WindowsUserMode
-      arch: X86
-      cc: cl
-      cxx: cl
-      buildType: Debug
-      additionalCMakeArgs: -DSYMCRYPT_INTERNAL_BUILD=1 -A Win32
-
-- job: Windows_x86_Release
-  pool:
-    vmImage: 'windows-2019'
-  steps:
-  - template: azure-build-template.yml
-    parameters:
-      env: WindowsUserMode
-      arch: X86
-      cc: cl
-      cxx: cl
-      buildType: Release
-      additionalCMakeArgs: -DSYMCRYPT_INTERNAL_BUILD=1 -A Win32
-
-- job: Linux_AMD64_gcc_Debug
-  pool:
-    vmImage: 'ubuntu-20.04'
-  steps:
-  - template: azure-build-template.yml
-    parameters:
-      env: LinuxUserMode
-      arch: AMD64
-      cc: gcc
-      cxx: g++
-      buildType: Debug
-      additionalCMakeArgs:
-
 - job: Linux_AMD64_gcc_Sanitize
   pool:
     vmImage: 'ubuntu-20.04'
@@ -111,44 +44,5 @@ jobs:
       arch: AMD64
       cc: gcc
       cxx: g++
-      buildType: Release
-      additionalCMakeArgs:
-
-- job: Linux_AMD64_clang_Debug
-  pool:
-    vmImage: 'ubuntu-20.04'
-  steps:
-  - template: azure-build-template.yml
-    parameters:
-      env: LinuxUserMode
-      arch: AMD64
-      cc: clang
-      cxx: clang++
-      buildType: Debug
-      additionalCMakeArgs:
-
-- job: Linux_AMD64_clang_Sanitize
-  pool:
-    vmImage: 'ubuntu-20.04'
-  steps:
-  - template: azure-build-template.yml
-    parameters:
-      env: LinuxUserMode
-      arch: AMD64
-      cc: clang
-      cxx: clang++
-      buildType: Sanitize
-      additionalCMakeArgs:
-
-- job: Linux_AMD64_clang_Release
-  pool:
-    vmImage: 'ubuntu-20.04'
-  steps:
-  - template: azure-build-template.yml
-    parameters:
-      env: LinuxUserMode
-      arch: AMD64
-      cc: clang
-      cxx: clang++
       buildType: Release
       additionalCMakeArgs:
